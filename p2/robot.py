@@ -1,6 +1,7 @@
 import socket, sys, numpy, math
 from croblink import CRobLink
 from croblink import CRobLinkAngs
+from copy import copy
 
 class Robot():
     def __init__(self, interface, systemModel):
@@ -11,16 +12,16 @@ class Robot():
         self.currentNode = [0, 0]        #[n_x, n_y]
         self.targetNode = [0, 0]            #[n_x, n_y]
         self.Kalman = Kalman(self.state, systemModel)
-        self.map = Map(currentNode)
-        self.measurements = cif.measurements
-        self.d = 1
-        self.orientation = 'east'       #general robot direction
+        self.map = Map(self.currentNode)
+        interface.readSensors()
+        self.measurements = interface.measures
+        self.orientation = ''       #general robot direction
     def motorAction(self, u):
-        self.kalman.setU(u)
+        self.Kalman.setU(u)
         self.interface.driveMotors(u[1],u[0])
     def getMeasurements(self):
         self.interface.readSensors()
-        self.measurements = self.interface.measurements
+        self.measurements = self.interface.measures
         compass = self.measurements.compass
         compass = compass*math.pi/180
         if compass < 0: compass += 2*math.pi
@@ -30,27 +31,35 @@ class Robot():
             compass -= 2*math.pi
         self.measurements.compass = compass
         irSensor = self.measurements.irSensor
-        irSensor = [x if x<self.d/2 else -1.0 for x in irSensor]
-        if self.state == 'north':
-            irSensor = irSensor[3]   + irSensor[0:2]
-        if self.state == 'west':
+        irSensor = [x if x<1/2 else -1.0 for x in irSensor]
+        if self.orientation == 'north':
+            irSensor = [irSensor[3]]   + irSensor[0:2]
+        if self.orientation == 'west':
             irSensor = irSensor[2:3] + irSensor[0:1]
-        if self.state == 'south':
-            irSensor = irSensor[1:3] + irSensor[0]
-
+        if self.orientation == 'south':
+            irSensor = irSensor[1:3] + [irSensor[0]]
+        nearestX = 2 * round(float(self.state[0])/2)
+        nearestY = 2 * round(float(self.state[1])/2)
+        irSensor[0] -= nearestY + 0.5
+        irSensor[1] -= nearestX + 0.5
+        irSensor[2] += nearestY - 0.5
+        irSensor[3] += nearestX - 0.5
+        self.measurements.irSensor = irSensor
         return self.measurements
     def getState(self):
-        self.state = self.Kalman.kalmanStep(self.getMeasurements())
+        self.interface.readSensors()
+        self.measurements = self.interface.measures
+        self.state = self.Kalman.kalmanStep(self.measurements)
         theta = self.state[2]
         theta = math.fmod(theta, 2*math.pi)
-        pizzaSection = theta//(math.pi/4)
-        if pizzaSection = 0 or pizzaSection = 7:
+        pizzaSection = int(theta//(math.pi/4))
+        if pizzaSection == 0 or pizzaSection == 7:
             self.orientation = 'east'
-        if pizzaSection = 1 or pizzaSection = 2:
+        if pizzaSection == 1 or pizzaSection == 2:
             self.orientation = 'north'
-        if pizzaSection = 3 or pizzaSection = 4:
+        if pizzaSection == 3 or pizzaSection == 4:
             self.orientation = 'west'
-        if pizzaSection = 5 or pizzaSection = 6:
+        if pizzaSection == 5 or pizzaSection == 6:
             self.orientation = 'south'
         return self.state
 
@@ -59,9 +68,8 @@ class Controller():
     def __init__(self, mood, robot):
         self.mood = mood                #0: asleep; 0.66: normal 1: aggressive; 10: cocaine;
         self.robot = robot
-        self.currentState = robot.state
     def move(self,direction):           #direction: up, down, left, right
-        if robot.isCentered:
+        if self.robot.isCentered:
             if direction == 'up':
                 self.robot.targetNode[1] += 1
                 self.robot.isCentered = False
@@ -75,23 +83,23 @@ class Controller():
                 self.robot.targetNode[0] += 1
                 self.robot.isCentered = False
     def getThetaRef(self, dX, dY):
-        state = self.currentState
+        state = self.robot.state
         thetaRef = math.atan2(dY, dX)
         if thetaRef < 0: thetaRef += 2*math.pi
         while state[2] - thetaRef > math.pi:
             thetaRef += 2*math.pi
         while state[2] - thetaRef < -math.pi:
-            compass -= 2*math.pi
+            thetaRef -= 2*math.pi
         return thetaRef
     def setControlValue(self):
-        if self.robot.measurements.collision = True:
+        if self.robot.measurements.collision == True:
             self.robot.targetNode = self.robot.currentNode
         self.currentState = self.robot.getState()
-        dX = self.robot.targetNode[0]*2*self.robot.d - state[0]
-        dY = self.robot.targetNode[1]*2*self.robot.d - state[1]
-        thetaRef = getThetaRef(dX, dY)
-        delta = math.sqrt(dX** + dY**)
-        u = calcControlValue(thetaRef, delta)
+        dX = self.robot.targetNode[0]*2 - self.currentState[0]
+        dY = self.robot.targetNode[1]*2 - self.currentState[1]
+        thetaRef = self.getThetaRef(dX, dY)
+        delta = math.sqrt(dX**2 + dY**2)
+        u = self.calcControlValue(thetaRef, delta)
         self.robot.motorAction(u)
     def calcControlValue(self, thetaRef, delta):
         P_theta = self.mood*0.15
@@ -115,7 +123,7 @@ class Controller():
             if self.robot.orientation == 'west':
                 errorTheta = math.fmod(theta, 2*math.pi) - math.pi
             if errorTheta < 4*math.pi/180:
-                self.robot.currentNode = self.robot.targetNode
+                self.robot.currentNode = copy(self.robot.targetNode)
                 self.robot.isCentered = True
         rightWheel = delta*P_delta + errorTheta*P_theta
         leftWheel  = delta*P_delta - errorTheta*P_theta
@@ -134,7 +142,7 @@ class Kalman():
 
 class Map():
     def __init__(self, startingPos):
-        self.nodes={startingPos: Node(startingPos, walls)}
+        self.nodes=0
 
 class Node():
     def __init__(self, pos, walls = [0, 0, 0, 0]):
