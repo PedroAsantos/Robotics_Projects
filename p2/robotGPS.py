@@ -13,18 +13,18 @@ class Robot():
         self.targetNode = [0, 0]            #[n_x, n_y]
         self.Kalman = Kalman(self.state, systemModel)
         self.map = Map(self.currentNode)
-        interface.readSensors()
-        self.x0 = interface.measures.x
-        self.y0 = interface.measures.y
-        self.measurements = interface.measures
+        self.interface.readSensors()
+        self.x0 = copy(interface.measures.x)
+        self.y0 = copy(interface.measures.y)
         self.orientation = ''       #general robot direction
+        self.getMeasurements()
     def motorAction(self, u):
         #self.Kalman.setU(u)
         self.interface.driveMotors(u[1],u[0])
     def getMeasurements(self):
         self.interface.readSensors()
-        self.measurements = self.interface.measures
-        compass = self.measurements.compass
+        self.measurements = copy(self.interface.measures)
+        compass = copy(self.measurements.compass)
         compass = compass*math.pi/180
         if compass < 0: compass += 2*math.pi
         while self.state[2] - compass > math.pi:
@@ -32,34 +32,29 @@ class Robot():
         while self.state[2] - compass < -math.pi:
             compass -= 2*math.pi
         self.measurements.compass = compass
-        irSensor = self.measurements.irSensor
-        irSensor = [x if x<1/2 else -1.0 for x in irSensor]
-        if self.orientation == 'north':
-            irSensor = [irSensor[3]]   + irSensor[0:2]
-        if self.orientation == 'west':
-            irSensor = irSensor[2:3] + irSensor[0:1]
-        if self.orientation == 'south':
-            irSensor = irSensor[1:3] + [irSensor[0]]
+        irSensor = copy(self.measurements.irSensor)
+        #irSensor = [x if x<1/2 else -1.0 for x in irSensor]
+        #if self.orientation == 'north':
+        #    irSensor = [irSensor[3]]   + irSensor[0:3]
+        #if self.orientation == 'west':
+        #    irSensor = irSensor[2:4] + irSensor[0:2]
+        #if self.orientation == 'south':
+        #    irSensor = irSensor[1:4] + [irSensor[0]]
         nearestX = 2 * round(float(self.state[0])/2)
         nearestY = 2 * round(float(self.state[1])/2)
-        irSensor[0] -= nearestY + 0.5
-        irSensor[1] -= nearestX + 0.5
-        irSensor[2] += nearestY - 0.5
-        irSensor[3] += nearestX - 0.5
+        #irSensor[0] -= nearestY + 0.5
+        #irSensor[1] -= nearestX + 0.5
+        #irSensor[2] += nearestY - 0.5
+        #irSensor[3] += nearestX - 0.5
         self.measurements.irSensor = irSensor
-        return self.measurements
+        return copy(self.measurements)
     def getState(self):
-        self.interface.readSensors()
-        self.measurements = self.interface.measures
+        self.getMeasurements()
         #self.state = self.Kalman.kalmanStep(self.measurements)
-        theta=self.measurements.compass
-        theta = theta*math.pi/180
-        if theta < 0: theta += 2*math.pi
-        while self.state[2] - theta > math.pi:
-            theta += 2*math.pi
-        while self.state[2] - theta < -math.pi:
-            theta -= 2*math.pi
+        theta=copy(self.measurements.compass)
         self.state=[self.measurements.x-self.x0, self.measurements.y-self.y0, theta]
+        while theta < 0:
+            theta += 2*math.pi
         theta = math.fmod(theta, 2*math.pi)
         pizzaSection = int(theta//(math.pi/4))
         if pizzaSection == 0 or pizzaSection == 7:
@@ -70,7 +65,7 @@ class Robot():
             self.orientation = 'west'
         if pizzaSection == 5 or pizzaSection == 6:
             self.orientation = 'south'
-        return self.state
+        return copy(self.state)
 
 # Functions for the continuous world
 class Controller():
@@ -102,7 +97,7 @@ class Controller():
         return thetaRef
     def setControlValue(self):
         if self.robot.measurements.collision == True:
-            self.robot.targetNode = self.robot.currentNode
+            self.robot.targetNode = copy(self.robot.currentNode)
         self.currentState = self.robot.getState()
         dX = self.robot.targetNode[0]*2 - self.currentState[0]
         dY = self.robot.targetNode[1]*2 - self.currentState[1]
@@ -111,33 +106,39 @@ class Controller():
         u = self.calcControlValue(thetaRef, delta)
         self.robot.motorAction(u)
     def calcControlValue(self, thetaRef, delta):
-        print(delta)
+        errorDelta = -delta
         P_theta = self.mood*0.15
         P_delta = self.mood*0.30
         theta = self.robot.state[2]
         errorTheta = theta - thetaRef
-        if errorTheta > 5 and errorTheta <= 9:
-            P_delta = P_delta * (-0.25*errorTheta + 9/4)
-        if errorTheta > 9:
+        ab = abs(errorTheta)*180/math.pi
+        if ab > 5 and ab <= 9:
+            P_delta = P_delta * (-0.25*ab + 9/4)
+        if ab > 9:
             P_delta = 0
-        if delta < 0.3:
+        if abs(delta) < 0.3:
             P_delta = 0
+            modulo = math.fmod(theta, 2*math.pi)
+            while modulo < 0: modulo += 2*math.pi
             if self.robot.orientation == 'north':
-                errorTheta = math.fmod(theta, 2*math.pi) - math.pi/2
+                errorTheta = modulo - math.pi/2
             if self.robot.orientation == 'east':
-                errorTheta = math.fmod(theta, 2*math.pi)
-                if errorTheta > math.pi:
-                    errorTheta -= 2*math.pi
+                errorTheta = modulo
+                if errorTheta > math.pi: errorTheta -= 2*math.pi
             if self.robot.orientation == 'south':
-                errorTheta = math.fmod(theta, 2*math.pi) - 3*math.pi/2
+                errorTheta = modulo - 3*math.pi/2
             if self.robot.orientation == 'west':
-                errorTheta = math.fmod(theta, 2*math.pi) - math.pi
-            if errorTheta < 4*math.pi/180:
+                errorTheta = modulo - math.pi
+            if abs(errorTheta) < 4*math.pi/180:
+                errorTheta = 0
                 self.robot.currentNode = copy(self.robot.targetNode)
                 self.robot.isCentered = True
-        rightWheel = delta*P_delta + errorTheta*P_theta
-        leftWheel  = delta*P_delta - errorTheta*P_theta
+        rightWheel = errorDelta*P_delta*(-1) + errorTheta*P_theta*(-1)
+        leftWheel  = errorDelta*P_delta*(-1) - errorTheta*P_theta*(-1)
         u = [rightWheel, leftWheel]
+        # print('P_theta: {0:4.2f}; P_delta: {1:4.2f}; theta: {2:6.3f}; thetaRef: {3:4.1f}; errorTheta: {4:4.1f}; delta: {5:4.1f}; wheels:{6:}'
+        # .format(P_theta, P_delta, theta, thetaRef, errorTheta, delta, u))
+
         return u
 
 class Kalman():
