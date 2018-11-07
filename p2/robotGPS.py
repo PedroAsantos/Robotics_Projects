@@ -7,11 +7,10 @@ class Robot():
     def __init__(self, interface, systemModel):
         self.interface = interface
         self.state = [0, 0, 0]            #[x y theta]
-        self.walls = [0, 0, 0, 0]          #[up down left right]
+        self.walls = [-1, -1, -1, -1]
         self.isCentered = True         #robot reached target node
         self.currentNode = [0, 0]        #[n_x, n_y]
         self.targetNode = [0, 0]            #[n_x, n_y]
-        self.Kalman = Kalman(self.state, systemModel)
         self.map = Map(self.currentNode)
         self.interface.readSensors()
         self.x0 = copy(interface.measures.x)
@@ -19,11 +18,11 @@ class Robot():
         self.orientation = ''       #general robot direction
         self.getMeasurements()
     def motorAction(self, u):
-        #self.Kalman.setU(u)
         self.interface.driveMotors(u[1],u[0])
     def getMeasurements(self):
         self.interface.readSensors()
         self.measurements = copy(self.interface.measures)
+        self.walls = [-1, -1, -1, -1]
         compass = copy(self.measurements.compass)
         compass = compass*math.pi/180
         if compass < 0: compass += 2*math.pi
@@ -33,24 +32,44 @@ class Robot():
             compass -= 2*math.pi
         self.measurements.compass = compass
         irSensor = copy(self.measurements.irSensor)
-        #irSensor = [x if x<1/2 else -1.0 for x in irSensor]
-        #if self.orientation == 'north':
-        #    irSensor = [irSensor[3]]   + irSensor[0:3]
-        #if self.orientation == 'west':
-        #    irSensor = irSensor[2:4] + irSensor[0:2]
-        #if self.orientation == 'south':
-        #    irSensor = irSensor[1:4] + [irSensor[0]]
+        irSensor = [1/x for x in irSensor]
+        if self.orientation == 'north':
+            irSensor = [irSensor[0]] + [irSensor[3]] + [irSensor[2]] + [irSensor[1]]
+        if self.orientation == 'east':
+            irSensor = [irSensor[1]] + [irSensor[0]] + [irSensor[3]] + [irSensor[2]]
+        if self.orientation == 'south':
+            irSensor = [irSensor[2]] + [irSensor[1]] + [irSensor[0]] + [irSensor[3]]
+        if self.orientation == 'west':
+            irSensor = [irSensor[3]] + [irSensor[2]] + [irSensor[1]] + [irSensor[0]]
+        self.walls, self.measurements.irSensor = self.checkForWalls(irSensor)
+        return copy(self.measurements)
+    def checkForWalls(self, irSensor):
+        angle = math.fmod(self.state[2], 2*math.pi)
+        nextAngle = abs(angle - (math.pi/2) * round(float(angle)/(math.pi/2)))
+        threshold = -1.95*nextAngle + 1
+        walls = [1 if x <= threshold else -1 for x in irSensor]
+        threshold = +1.95*nextAngle + 1
+        walls = [0 if irSensor[x] >  threshold else walls[x] for x in range(4)]
+
+        dX1 = self.targetNode[0]*2 - self.state[0]
+        dY1 = self.targetNode[1]*2 - self.state[1]
+        delta1 = math.sqrt(dX1**2 + dY1**2)
+        dX2 = self.currentNode[0]*2 - self.state[0]
+        dY2 = self.currentNode[1]*2 - self.state[1]
+        delta2 = math.sqrt(dX2**2 + dY2**2)
+        delta = min(delta1, delta2)
+        if delta >= 0.3: walls = [-1, -1, -1, -1]
+
         nearestX = 2 * round(float(self.state[0])/2)
         nearestY = 2 * round(float(self.state[1])/2)
-        #irSensor[0] -= nearestY + 0.5
-        #irSensor[1] -= nearestX + 0.5
-        #irSensor[2] += nearestY - 0.5
-        #irSensor[3] += nearestX - 0.5
-        self.measurements.irSensor = irSensor
-        return copy(self.measurements)
+        irSensor[0] = -irSensor[0] + nearestY + 0.5
+        irSensor[1] = -irSensor[1] + nearestX + 0.5
+        irSensor[2] =  irSensor[2] + nearestY - 0.5
+        irSensor[3] =  irSensor[3] + nearestX - 0.5
+        irSensor = [irSensor[x] if walls[x] ==1 else [] for x in range(4)]
+        return (walls, irSensor)
     def getState(self):
         self.getMeasurements()
-        #self.state = self.Kalman.kalmanStep(self.measurements)
         theta=copy(self.measurements.compass)
         self.state=[self.measurements.x-self.x0, self.measurements.y-self.y0, theta]
         while theta < 0:
@@ -116,7 +135,7 @@ class Controller():
             P_delta = P_delta * (-0.25*ab + 9/4)
         if ab > 9:
             P_delta = 0
-        if abs(delta) < 0.3:
+        if delta < 0.2:
             P_delta = 0
             modulo = math.fmod(theta, 2*math.pi)
             while modulo < 0: modulo += 2*math.pi
@@ -140,16 +159,6 @@ class Controller():
         # .format(P_theta, P_delta, theta, thetaRef, errorTheta, delta, u))
 
         return u
-
-class Kalman():
-    def __init__(self, initialBelief, systemModel):
-        self.systemModel = systemModel
-        self.belief = initialBelief
-    def updateSystemMatrix(self,state):
-        x=0
-    def kalmanStep(self, measurements):
-        x=0
-        return belief
 
 class Map():
     def __init__(self, startingPos):
