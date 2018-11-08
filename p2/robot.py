@@ -13,7 +13,7 @@ class Robot():
         self.currentNode = [0, 0]           #[n_x, n_y]
         self.targetNode = [0, 0]            #[n_x, n_y]
         self.Kalman = Kalman(copy(self.state), systemModel)
-        self.map = Map(self.currentNode)
+        self.map = Map()
         self.orientation = ''               #general robot direction (e.g. east)
         self.irStd = []
         self.getMeasurements()
@@ -279,25 +279,25 @@ class Map():
         #add walls to the current position of the robot
         self.map[elementLocation[0]][elementLocation[1]].walls = walls
         #add walls to the nodes near this walls
-        if walls[0]=1:
+        if walls[0]==1:
             tempNodeAboveLocation = tuple(map(operator.add, elementLocation, (0,1)))
             if tempNodeAboveLocation[0] < len(self.map[0]) & tempNodeAboveLocation[1] < len(self.map):
                 walls = self.map[tempNodeAboveLocation[0]][tempNodeAboveLocation[1]].walls
                 walls[2]=1
                 self.map[tempNodeAboveLocation[0]][tempNodeAboveLocation[1]].walls=walls
-        if walls[1]=1:
+        if walls[1]==1:
             tempNodeEastLocation = tuple(map(operator.add, elementLocation, (1,0)))
             if tempNodeEastLocation[0] < len(self.map[0]) & tempNodeEastLocation[1] < len(self.map):
                 walls = self.map[tempNodeEastLocation[0]][tempNodeEastLocation[1]].walls
                 walls[3]=1
                 self.map[tempNodeEastLocation[0]][tempNodeEastLocation[1]].walls=walls
-        if walls[2]=1:
+        if walls[2]==1:
             tempNodeBelowLocation = tuple(map(operator.add, elementLocation, (0,-1)))
             if tempNodeBelowLocation[0] < len(self.map[0]) & tempNodeBelowLocation[1] < len(self.map):
                 walls = self.map[tempNodeBelowLocation[0]][tempNodeBelowLocation[1]].walls
                 walls[0]=1
                 self.map[tempNodeBelowLocation[0]][tempNodeBelowLocation[1]].walls=walls
-        if walls[3]=1:
+        if walls[3]==1:
             tempNodeWestLocation = tuple(map(operator.add, elementLocation, (-1,0)))
             if tempNodeWestLocation[0] < len(self.map[0]) & tempNodeWestLocation[1] < len(self.map):
                 walls = self.map[tempNodeWestLocation[0]][tempNodeWestLocation[1]].walls
