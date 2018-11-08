@@ -1,4 +1,5 @@
-import socket, sys, numpy, math, robotGPS
+import socket, sys, numpy, math
+from robot import *
 from croblink import CRobLink
 from croblink import CRobLinkAngs
 
@@ -17,21 +18,22 @@ from croblink import CRobLinkAngs
 ###############################################################################
 
 interface = CRobLinkAngs('speedy', 0, [0.0,90.0,180.0,-90.0], 'localhost')
-systemModel = 0
+systemModel = SystemModel()
 if interface.status!=0:
     print "Connection refused or error"
     quit()
 robot = Robot(interface, systemModel)
 controller = Controller(robot)
 iteration = 0
+command=0
+dir=['right','right','right','up','left','up','right','right','up','right','right','right','right','right','down','left','right','down','down','right']
 
 while 1:
-    iteration += 1
     if robot.isCentered:
-        direction = raw_input("Enter direction (up, down, left, right):")
-        controller.move(direction)
-        
+        controller.move(dir[command])
+        command += 1
     controller.setControlValue()
     #Debug:
+    iteration += 1
     print ('Iter: {0:4d}; state: {1:4.1f} {8:4.1f}, {6:5.2f}; center: {2:d}; node: {3:}; target: {4:}, dir: {5:}; walls: {7:}'
     .format(iteration, robot.state[0] , robot.isCentered, robot.currentNode, robot.targetNode, robot.orientation, robot.state[2], robot.walls, robot.state[1] ))
