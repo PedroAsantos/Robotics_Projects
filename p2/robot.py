@@ -14,8 +14,11 @@ class Robot():
         self.Kalman = Kalman(copy(self.state), systemModel)
         self.map = Map(self.currentNode)
         self.orientation = ''               #general robot direction (e.g. east)
+        self.irStd = []
         self.getMeasurements()
     def motorAction(self, u):               #apply control input u
+        if (not self.measurements.start) or (self.measurements.stop):
+            u = [0, 0]
         self.Kalman.setU(u)
         self.interface.driveMotors(u[1],u[0])
     def getMeasurements(self):              #get measurements from interface
@@ -32,6 +35,7 @@ class Robot():
             compass -= 2*math.pi
         self.measurements.compass = compass
         irSensor = copy(self.measurements.irSensor)
+        self.irStd = [(1/x - 1/(1/x-0.1)) if x>0.0 else 10 for x in irSensor]
         irSensor = [1/x if x > 0.0 else 100.0 for x in irSensor] #distance is inverse of measurement
         # map local orientation to global orientation:
         if self.orientation == 'north':
@@ -74,7 +78,7 @@ class Robot():
         # empty entry: no valid measurement
         return (walls, irSensor)
     def getState(self):
-        self.state = self.Kalman.kalmanStep(self.getMeasurements())
+        self.state = self.Kalman.kalmanStep(self.getMeasurements(), self.irStd)
         theta = self.state[2]
         while theta < 0:        # only positive angles
             theta += 2*math.pi
@@ -165,9 +169,96 @@ class Controller():
         leftWheel  = limitedCtrl - errorTheta*P_theta*(-1)
         u = [rightWheel, leftWheel]
         return u
-
+class SystemModel():
+    def __init__(self):
+        self.A = numpy.array([[1,0,0,0,0],[0,1,0,0,0],[0,0,1,0.5,-0.5],[0,0,0,0.5,0],[0,0,0,0,0.5]])
+        self.B = numpy.array([[0,0],[0,0],[0.5,-0.5],[0.5,0],[0,0.5]])
+        self.R = numpy.array([[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0]])
+        self.C = numpy.array([[0,1,0,0,0],[1,0,0,0,0],[0,1,0,0,0],[1,0,0,0,0],[0,0,1,0,0]])
 class Kalman():
-    nada=[]
+    def __init__(self, initialBelief, systemModel):
+        self.systemModel = systemModel
+        self.belief = numpy.append(numpy.asarray(initialBelief), numpy.array([0, 0]))
+        self.belief = self.belief.reshape(5,1)
+        self.sigma =  ([[0,0,0,0,0],[0,0,0,0,0],[0,0,20,0,0],[0,0,0,0,0],[0,0,0,0,0]])
+        self.u = numpy.array([[0],[0]])
+        self.updateSystem()
+    def updateSystem(self):
+        s = math.sin(self.belief[2,0])/4
+        c = math.cos(self.belief[2,0])/4
+        m = numpy.array([[c, c],[s, s]])
+        self.systemModel.A[0:2, 3:5] = m
+        self.systemModel.B[0:2, 0:2] = m
+        self.systemModel.R[3,3] = 0.015*(0.5*self.u[0,0] + 0.5*self.belief[3,0])
+        self.systemModel.R[4,4] = 0.015*(0.5*self.u[1,0] + 0.5*self.belief[4,0])
+
+    def kalmanStep(self, measurements, irStd):
+        z, tempC, Q= self.calcz(measurements, irStd)
+        belPre = numpy.add(
+                            numpy.matmul(self.systemModel.A, self.belief),
+                            numpy.matmul(self.systemModel.B, self.u)
+                            )
+        actionNoise = numpy.matmul(
+                                numpy.matmul(self.systemModel.A, self.sigma),
+                                numpy.transpose(self.systemModel.A)
+                                    )
+        sigmaPre = numpy.add( actionNoise, self.systemModel.R )
+
+        A = numpy.matmul(
+                            sigmaPre, numpy.transpose(tempC)
+                            )
+        B = numpy.add(
+                    numpy.matmul(tempC, A), Q
+                        )
+        KalmanGain = numpy.matmul( A, numpy.linalg.inv(B) )
+        C = numpy.subtract(
+                            z, numpy.matmul(
+                                                tempC, belPre
+                                                )
+                            )
+        belief = numpy.add(
+                            belPre, numpy.matmul(
+                                                    KalmanGain, C
+                                                    )
+                            )
+
+        D = numpy.matmul(KalmanGain, tempC)
+        Sigma = numpy.matmul(
+                                numpy.subtract( numpy.eye(5), D ), sigmaPre
+                                )
+
+        self.Sigma = Sigma
+        self.belief = belief
+        self.updateSystem()
+        belief = belief.reshape(1,5)[0]
+        belief = belief[0:3].tolist()
+
+        return belief
+    def setU(self, u):
+        u = numpy.asarray(u)
+        u = u.reshape(2,1)
+        self.u = u
+    def calcz(self, measurements, irStd):
+        compass = numpy.asarray(measurements.compass)
+        irSensor = numpy.asarray([x for x in measurements.irSensor if x!=[]])
+        validSenses = [1 if x!=[] else 0 for x in measurements.irSensor]
+        z = numpy.append([irSensor], [compass])
+        z = z.reshape(numpy.shape(z)[0],1)
+
+        tempC = self.systemModel.C
+        currentRow = 0
+        for x in validSenses:
+            if x == 0:
+                tempC = numpy.delete(tempC, currentRow, 0)
+            else:
+                currentRow += 1
+
+        std = [irStd[x] + 0.06 for x in range(4) if validSenses[x]==1]
+        std.append(2*math.pi/180)
+        Q = numpy.diag(numpy.asarray(std))
+
+        return (z, tempC, Q)
+
 
         # functions for the discrete world:
 
