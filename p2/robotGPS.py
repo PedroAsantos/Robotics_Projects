@@ -32,7 +32,7 @@ class Robot():
             compass -= 2*math.pi
         self.measurements.compass = compass
         irSensor = copy(self.measurements.irSensor)
-        irSensor = [1/x for x in irSensor]
+        irSensor = [1/x if x > 0.0 else 100.0 for x in irSensor]
         if self.orientation == 'north':
             irSensor = [irSensor[0]] + [irSensor[3]] + [irSensor[2]] + [irSensor[1]]
         if self.orientation == 'east':
@@ -46,9 +46,9 @@ class Robot():
     def checkForWalls(self, irSensor):
         angle = math.fmod(self.state[2], 2*math.pi)
         nextAngle = abs(angle - (math.pi/2) * round(float(angle)/(math.pi/2)))
-        threshold = -1.95*nextAngle + 1
+        threshold = -1.88*nextAngle + 0.9
         walls = [1 if x <= threshold else -1 for x in irSensor]
-        threshold = +1.95*nextAngle + 1
+        threshold = +0.9*nextAngle + 0.9
         walls = [0 if irSensor[x] >  threshold else walls[x] for x in range(4)]
 
         dX1 = self.targetNode[0]*2 - self.state[0]
@@ -58,7 +58,7 @@ class Robot():
         dY2 = self.currentNode[1]*2 - self.state[1]
         delta2 = math.sqrt(dX2**2 + dY2**2)
         delta = min(delta1, delta2)
-        if delta >= 0.3: walls = [-1, -1, -1, -1]
+        if delta >= 0.4: walls = [-1, -1, -1, -1]
 
         nearestX = 2 * round(float(self.state[0])/2)
         nearestY = 2 * round(float(self.state[1])/2)
@@ -88,8 +88,7 @@ class Robot():
 
 # Functions for the continuous world
 class Controller():
-    def __init__(self, mood, robot):
-        self.mood = mood                #0: asleep; 0.66: normal 1: aggressive; 10: cocaine;
+    def __init__(self, robot):
         self.robot = robot
     def move(self,direction):           #direction: up, down, left, right
         if self.robot.isCentered:
@@ -126,8 +125,8 @@ class Controller():
         self.robot.motorAction(u)
     def calcControlValue(self, thetaRef, delta):
         errorDelta = -delta
-        P_theta = self.mood*0.15
-        P_delta = self.mood*0.30
+        P_theta = 0.15
+        P_delta = 0.30
         theta = self.robot.state[2]
         errorTheta = theta - thetaRef
         ab = abs(errorTheta)*180/math.pi
@@ -152,8 +151,10 @@ class Controller():
                 errorTheta = 0
                 self.robot.currentNode = copy(self.robot.targetNode)
                 self.robot.isCentered = True
-        rightWheel = errorDelta*P_delta*(-1) + errorTheta*P_theta*(-1)
-        leftWheel  = errorDelta*P_delta*(-1) - errorTheta*P_theta*(-1)
+        unlimitedCtrl = errorDelta*P_delta*(-1)
+        limitedCtrl = unlimitedCtrl if abs(unlimitedCtrl) < 0.12 else numpy.sign(unlimitedCtrl)*0.12
+        rightWheel = limitedCtrl + errorTheta*P_theta*(-1)
+        leftWheel  = limitedCtrl - errorTheta*P_theta*(-1)
         u = [rightWheel, leftWheel]
         # print('P_theta: {0:4.2f}; P_delta: {1:4.2f}; theta: {2:6.3f}; thetaRef: {3:4.1f}; errorTheta: {4:4.1f}; delta: {5:4.1f}; wheels:{6:}'
         # .format(P_theta, P_delta, theta, thetaRef, errorTheta, delta, u))

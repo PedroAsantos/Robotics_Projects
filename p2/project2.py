@@ -23,8 +23,7 @@ if interface.status!=0:
     print "Connection refused or error"
     quit()
 robot = Robot(interface, systemModel)
-mood = 1.25                         # 0.66: normal 1: aggressive; 1.25: max;
-controller = Controller(mood, robot)
+controller = Controller(robot)
 iteration = 0
 
 while 1:

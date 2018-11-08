@@ -32,7 +32,7 @@ class Robot():
             compass -= 2*math.pi
         self.measurements.compass = compass
         irSensor = copy(self.measurements.irSensor)
-        irSensor = [1/x for x in irSensor]   #distance is inverse of measurement
+        irSensor = [1/x if x > 0.0 else 100.0 for x in irSensor] #distance is inverse of measurement
         # map local orientation to global orientation:
         if self.orientation == 'north':
             irSensor = [irSensor[0]] + [irSensor[3]] + [irSensor[2]] + [irSensor[1]]
@@ -49,9 +49,9 @@ class Robot():
         # angle to closest general direction (north, east etc.):
         nextAngle = abs(angle - (math.pi/2) * round(float(angle)/(math.pi/2)))
         # only check for walls when robot is aligned
-        threshold = -1.95*nextAngle + 1 # first: check for walls
+        threshold = -1.5*nextAngle + 0.9 # first: check for walls
         walls = [1 if x <= threshold else -1 for x in irSensor]
-        threshold = +1.95*nextAngle + 1 # second: check for no walls
+        threshold = +0.9*nextAngle + 0.9 # second: check for no walls
         walls = [0 if irSensor[x] >  threshold else walls[x] for x in range(4)]
         # else: unknown (-1)
         # calculate distance to closest cell:
@@ -62,7 +62,7 @@ class Robot():
         dY2 = self.currentNode[1]*2 - self.state[1]
         delta2 = math.sqrt(dX2**2 + dY2**2)
         delta = min(delta1, delta2)
-        if delta >= 0.3: walls = [-1, -1, -1, -1]
+        if delta >= 0.4: walls = [-1, -1, -1, -1]
         # map sensor distance readings to global x,y positions:
         nearestX = 2 * round(float(self.state[0])/2)
         nearestY = 2 * round(float(self.state[1])/2)
@@ -93,8 +93,7 @@ class Robot():
 
 # Functions for the continuous world
 class Controller():
-    def __init__(self, mood, robot):
-        self.mood = mood                # 0.66: normal 1: aggressive; 1.25: max;
+    def __init__(self, robot):
         self.robot = robot
     def move(self,direction):           #direction: up, down, left, right
         if self.robot.isCentered:
@@ -131,8 +130,8 @@ class Controller():
         self.robot.motorAction(u)
     def calcControlValue(self, thetaRef, delta):    # P-controller
         errorDelta = -delta                         # distance error
-        P_theta = self.mood*0.15                    # proportional action
-        P_delta = self.mood*0.30                    # proportional action
+        P_theta = 0.15                    # proportional action
+        P_delta = 0.30                    # proportional action
         theta = self.robot.state[2]
         errorTheta = theta - thetaRef               # angular error
         ab = abs(errorTheta)*180/math.pi
@@ -140,7 +139,7 @@ class Controller():
             P_delta = P_delta * (-0.25*ab + 9/4)
         if ab > 9:              # don't go forward if angular error is too high
             P_delta = 0
-        if abs(errorDelta) < 0.2:       # node tolerance
+        if abs(errorDelta) < 0.25:       # node tolerance
             P_delta = 0                 # stop moving
             modulo = math.fmod(theta, 2*math.pi)
             while modulo < 0: modulo += 2*math.pi
@@ -160,8 +159,10 @@ class Controller():
                 self.robot.currentNode = copy(self.robot.targetNode)
                 self.robot.isCentered = True
         # motor control values calculated by two P-Loops:
-        rightWheel = errorDelta*P_delta*(-1) + errorTheta*P_theta*(-1)
-        leftWheel  = errorDelta*P_delta*(-1) - errorTheta*P_theta*(-1)
+        unlimitedCtrl = errorDelta*P_delta*(-1)
+        limitedCtrl = unlimitedCtrl if abs(unlimitedCtrl) < 0.12 else numpy.sign(unlimitedCtrl)*0.12
+        rightWheel = limitedCtrl + errorTheta*P_theta*(-1)
+        leftWheel  = limitedCtrl - errorTheta*P_theta*(-1)
         u = [rightWheel, leftWheel]
         return u
 
