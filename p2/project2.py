@@ -30,6 +30,7 @@ while 1:
     if robot.isCentered:
         direction = raw_input("Enter direction (up, down, left, right):")
         controller.move(direction)
+        
     controller.setControlValue()
     #Debug:
     print ('Iter: {0:4d}; state: {1:4.1f} {8:4.1f}, {6:5.2f}; center: {2:d}; node: {3:}; target: {4:}, dir: {5:}; walls: {7:}'

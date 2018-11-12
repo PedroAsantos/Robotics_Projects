@@ -1,6 +1,7 @@
 import socket, sys, numpy, math
 from croblink import CRobLinkAngs
 from copy import copy
+import operator
 
 class Robot():
     def __init__(self, interface, systemModel):
@@ -11,7 +12,7 @@ class Robot():
         self.currentNode = [0, 0]           #[n_x, n_y]
         self.targetNode = [0, 0]            #[n_x, n_y]
         self.Kalman = Kalman(copy(self.state), systemModel)
-        self.map = Map(self.currentNode)
+        self.map = Map()
         self.orientation = ''               #general robot direction (e.g. east)
         self.irStd = []
         self.getMeasurements()
@@ -254,10 +255,82 @@ class Kalman():
         # functions for the discrete world:
 
 class Map():
-    def __init__(self, startingPos):
+    def __init__(self):
         self.nodes=0
+        self.map = []
+        xList= []
+        for y in range(6,-7,-1):
+            for x in range(-13,14):
+                node = Node((x,y))
+                xList.append(node)
+            self.map.append(xList)
+            xList = []
+    def putWalls(self,currentNode,walls):
+        elementLocation= getElementLocation(currentNode)
+        #add walls to the current position of the robot
+        self.map[elementLocation[0]][elementLocation[1]].walls = walls
+        #add walls to the nodes near this walls
+        if walls[0]==1:
+            tempNodeAboveLocation = tuple(map(operator.add, elementLocation, (0,1)))
+            if tempNodeAboveLocation[0] < len(self.map[0]) & tempNodeAboveLocation[1] < len(self.map):
+                walls = self.map[tempNodeAboveLocation[0]][tempNodeAboveLocation[1]].walls
+                walls[2]=1
+                self.map[tempNodeAboveLocation[0]][tempNodeAboveLocation[1]].walls=walls
+        if walls[1]==1:
+            tempNodeEastLocation = tuple(map(operator.add, elementLocation, (1,0)))
+            if tempNodeEastLocation[0] < len(self.map[0]) & tempNodeEastLocation[1] < len(self.map):
+                walls = self.map[tempNodeEastLocation[0]][tempNodeEastLocation[1]].walls
+                walls[3]=1
+                self.map[tempNodeEastLocation[0]][tempNodeEastLocation[1]].walls=walls
+        if walls[2]==1:
+            tempNodeBelowLocation = tuple(map(operator.add, elementLocation, (0,-1)))
+            if tempNodeBelowLocation[0] < len(self.map[0]) & tempNodeBelowLocation[1] < len(self.map):
+                walls = self.map[tempNodeBelowLocation[0]][tempNodeBelowLocation[1]].walls
+                walls[0]=1
+                self.map[tempNodeBelowLocation[0]][tempNodeBelowLocation[1]].walls=walls
+        if walls[3]==1:
+            tempNodeWestLocation = tuple(map(operator.add, elementLocation, (-1,0)))
+            if tempNodeWestLocation[0] < len(self.map[0]) & tempNodeWestLocation[1] < len(self.map):
+                walls = self.map[tempNodeWestLocation[0]][tempNodeWestLocation[1]].walls
+                walls[1]=1
+                self.map[tempNodeWestLocation[0]][tempNodeWestLocation[1]].walls=walls
 
+
+
+
+    def getElementLocation(self, currentNode):
+        basePoint=(5,12)
+        return tuple(map(operator.add, basePoint, currentNode))
+
+
+    def removeMapLine(self,coordinate,side):
+        if coordinate=="x":
+            if side == "left":
+                #self.map =
+                [xList.pop(0) for xList in self.map ]
+            else:
+                #self.map =
+                 [xList.pop() for xList in self.map ]
+        else:
+            if side == "up":
+                self.map.pop(0)
+            else:
+                self.map.pop()
+    def getMap(self):
+        return self.map
+    def __str__(self):
+        string = ""
+        for x in self.map:
+            #string.join(str(x))
+            string+=str(x)
+            string+="\n"
+            #string.join("\n")
+        return string
 class Node():
     def __init__(self, pos, walls = [0, 0, 0, 0]):
         self.pos = pos
         self.walls = walls
+    def __str__(self):
+     return ""+str(self.pos)
+    def __repr__(self):
+     return ""+str(self.pos)
