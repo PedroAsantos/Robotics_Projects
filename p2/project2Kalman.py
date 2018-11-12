@@ -1,6 +1,5 @@
 import socket, sys, numpy, math
 from robot import *
-from croblink import CRobLink
 from croblink import CRobLinkAngs
 
 #######################   IMPORTANT: README   ##################################
