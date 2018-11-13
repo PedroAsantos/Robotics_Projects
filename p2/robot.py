@@ -2,6 +2,7 @@ import socket, sys, numpy, math
 from croblink import CRobLinkAngs
 from copy import copy
 import operator
+import pdb
 
 class Robot():
     def __init__(self, interface, systemModel):
@@ -70,15 +71,15 @@ class Robot():
         # map sensor distance readings to global x,y positions:
         nearestX = 2 * round(float(self.state[0])/2)
         nearestY = 2 * round(float(self.state[1])/2)
-        irSensor[0] = -irSensor[0] + nearestY + 0.5
-        irSensor[1] = -irSensor[1] + nearestX + 0.5
-        irSensor[2] =  irSensor[2] + nearestY - 0.5
-        irSensor[3] =  irSensor[3] + nearestX - 0.5
+        irSensor[0] = -irSensor[0] + nearestY + 0.45
+        irSensor[1] = -irSensor[1] + nearestX + 0.45
+        irSensor[2] =  irSensor[2] + nearestY - 0.45
+        irSensor[3] =  irSensor[3] + nearestX - 0.45
         irSensor = [irSensor[x] if walls[x] ==1 else [] for x in range(4)]
         # empty entry: no valid measurement
         return (walls, irSensor)
     def getState(self):
-        self.state = self.Kalman.kalmanStep(self.getMeasurements(), self.irStd)
+        self.state = self.Kalman.kalmanStep(self.getMeasurements(), self.irStd, self.currentNode, self.orientation) #Debug
         theta = self.state[2]
         while theta < 0:        # only positive angles
             theta += 2*math.pi
@@ -143,7 +144,7 @@ class Controller():
             P_delta = P_delta * (-0.25*ab + 9/4)
         if ab > 9:              # don't go forward if angular error is too high
             P_delta = 0
-        if abs(errorDelta) < 0.25:       # node tolerance
+        if abs(errorDelta) < 0.20:       # node tolerance
             P_delta = 0                 # stop moving
             modulo = math.fmod(theta, 2*math.pi)
             while modulo < 0: modulo += 2*math.pi
@@ -195,7 +196,7 @@ class Kalman():
         self.systemModel.R[3,3] = 0.015*(0.5*self.u[0,0] + 0.5*self.belief[3,0])
         self.systemModel.R[4,4] = 0.015*(0.5*self.u[1,0] + 0.5*self.belief[4,0])
 
-    def kalmanStep(self, measurements, irStd):
+    def kalmanStep(self, measurements, irStd, node, orientation):
         z, tempC, Q= self.calcz(measurements, irStd)
         belPre =        numpy.add(
                             numpy.matmul(self.systemModel.A, self.belief),
@@ -225,6 +226,8 @@ class Kalman():
         self.Sigma = Sigma
         self.belief = belief
         self.updateSystem()
+        #if node == [3,0] and orientation == 'north' and numpy.shape(tempC)[0]==2:
+        #    pdb.set_trace()
         belief = belief.reshape(1,5)[0]
         belief = belief[0:3].tolist()
         return belief
@@ -251,8 +254,7 @@ class Kalman():
 
         return (z, tempC, Q)
 
-
-        # functions for the discrete world:
+###### functions for the discrete world ########
 
 class Map():
     def __init__(self):
