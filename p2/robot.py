@@ -79,7 +79,7 @@ class Robot():
         # empty entry: no valid measurement
         return (walls, irSensor)
     def getState(self):
-        self.state = self.Kalman.kalmanStep(self.getMeasurements(), self.irStd, self.currentNode, self.orientation) #Debug
+        self.state = self.Kalman.kalmanStep(self.getMeasurements(), self.irStd)
         theta = self.state[2]
         while theta < 0:        # only positive angles
             theta += 2*math.pi
@@ -196,7 +196,7 @@ class Kalman():
         self.systemModel.R[3,3] = 0.015*(0.5*self.u[0,0] + 0.5*self.belief[3,0])
         self.systemModel.R[4,4] = 0.015*(0.5*self.u[1,0] + 0.5*self.belief[4,0])
 
-    def kalmanStep(self, measurements, irStd, node, orientation):
+    def kalmanStep(self, measurements, irStd):
         z, tempC, Q= self.calcz(measurements, irStd)
         belPre =        numpy.add(
                             numpy.matmul(self.systemModel.A, self.belief),
