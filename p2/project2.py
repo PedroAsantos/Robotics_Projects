@@ -1,4 +1,6 @@
-import socket, sys, numpy, math, robotGPS
+import socket, sys, numpy, math
+from robotGPS import *
+from robot import Map
 from croblink import CRobLink
 from croblink import CRobLinkAngs
 
@@ -23,14 +25,16 @@ if interface.status!=0:
     quit()
 robot = Robot(interface, systemModel)
 controller = Controller(robot)
+map = Map()
 iteration = 0
 
 while 1:
     iteration += 1
     if robot.isCentered:
         direction = raw_input("Enter direction (up, down, left, right):")
+    #    map.putWalls(robot.currentNode,robot.walls)
         controller.move(direction)
-        
+
     controller.setControlValue()
     #Debug:
     print ('Iter: {0:4d}; state: {1:4.1f} {8:4.1f}, {6:5.2f}; center: {2:d}; node: {3:}; target: {4:}, dir: {5:}; walls: {7:}'

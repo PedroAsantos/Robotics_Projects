@@ -266,7 +266,7 @@ class Map():
             self.map.append(xList)
             xList = []
     def putWalls(self,currentNode,walls):
-        elementLocation= getElementLocation(currentNode)
+        elementLocation= self.getElementLocation(currentNode)
         #add walls to the current position of the robot
         self.map[elementLocation[0]][elementLocation[1]].walls = walls
         #add walls to the nodes near this walls
@@ -295,7 +295,7 @@ class Map():
                 walls[1]=1
                 self.map[tempNodeWestLocation[0]][tempNodeWestLocation[1]].walls=walls
 
-
+        print(self.map)
 
 
     def getElementLocation(self, currentNode):
@@ -327,7 +327,7 @@ class Map():
             #string.join("\n")
         return string
 class Node():
-    def __init__(self, pos, walls = [0, 0, 0, 0]):
+    def __init__(self, pos, walls = [-1, -1, -1, -1]):
         self.pos = pos
         self.walls = walls
     def __str__(self):
