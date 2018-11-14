@@ -72,10 +72,10 @@ class Robot():
         # map sensor distance readings to global x,y positions:
         nearestX = 2 * round(float(self.state[0])/2)
         nearestY = 2 * round(float(self.state[1])/2)
-        irSensor[0] = -irSensor[0] + nearestY + 0.45
-        irSensor[1] = -irSensor[1] + nearestX + 0.45
-        irSensor[2] =  irSensor[2] + nearestY - 0.45
-        irSensor[3] =  irSensor[3] + nearestX - 0.45
+        irSensor[0] = -irSensor[0] + nearestY + 0.40
+        irSensor[1] = -irSensor[1] + nearestX + 0.40
+        irSensor[2] =  irSensor[2] + nearestY - 0.40
+        irSensor[3] =  irSensor[3] + nearestX - 0.40
         irSensor = [irSensor[x] if walls[x] ==1 else [] for x in range(4)]
         # empty entry: no valid measurement
         return (walls, irSensor)
