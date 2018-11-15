@@ -4,6 +4,7 @@ from copy import copy
 import operator
 import pdb
 from random import randint
+from copy import deepcopy
 
 class Robot():
     def __init__(self, interface, systemModel):
@@ -428,6 +429,11 @@ class Map():
         self.NodesOfAStart=path
         self.performingAStar=True
 
+    def checkIfNodeIsInList(self,list,nodeToCheck):
+        for node in list:
+            if node.pos == nodeToCheck.pos and node.parent==nodeToCheck.pos:
+                return True
+        return False
 
     def performAStart(self,startingNodeCoord,targetNodeCoord):
         print("PerforminAStart")
@@ -437,27 +443,36 @@ class Map():
         currentElementLocation = self.getElementLocation(startingNodeCoord)
         targetElementLocation = self.getElementLocation(targetNodeCoord)
         startingNode = self.map[currentElementLocation[0]][currentElementLocation[1]]
-        openSet.append(startingNode)
+        openSet.append(deepcopy(startingNode))
         targetNode = self.map[targetElementLocation[0]][targetElementLocation[1]]
 
         while len(openSet)>0:
             currentNode = openSet[0]
 
             for n in openSet:
-                if n.getFcost() < currentNode.getFcost() or n.getFcost() == currentNode.getFcost() and n.hCost < currentNode.hCost:
+                if n.getFcost() < currentNode.getFcost() or (n.getFcost() == currentNode.getFcost() and n.hCost < currentNode.hCost):
                     currentNode = n
-            openSet.remove(n)
-            closedSet.append(n)
+            openSet.remove(currentNode)
+            closedSet.append(currentNode)
 
             if currentNode.pos==targetNode.pos:
                 self.getPath(startingNode,currentNode)
-
-            for neightborCoor in self.getKnownNeighbors(self.getNeighbors(currentNode.pos,currentNode.walls)):
+                break
+            neigh = self.getKnownNeighbors(self.getNeighbors(currentNode.pos,currentNode.walls))
+            print(currentNode.pos)
+            print(neigh)
+            #print(openSet)
+            #if currentNode.pos == (6,2) and openSet[0].pos==(3,2):
+            #    pdb.set_trace()
+            for neightborCoor in neigh:
                 neighIndex = self.getElementLocation((neightborCoor[0],neightborCoor[1]))
-                neighborNode = self.map[neighIndex[0]][neighIndex[1]]
-                if not (neighborNode in closedSet):
+                neighborNode = deepcopy(self.map[neighIndex[0]][neighIndex[1]])
+
+                if not self.checkIfNodeIsInList(closedSet,neighborNode):
+                #if not (neighborNode in closedSet):
                     newMovementCostToNeigh = currentNode.gCost + 1
-                    if newMovementCostToNeigh < neighborNode.gCost or not ( neighborNode in openSet):
+                    if newMovementCostToNeigh < neighborNode.gCost or not self.checkIfNodeIsInList(openSet,neighborNode):
+                    #if newMovementCostToNeigh < neighborNode.gCost or not ( neighborNode in openSet):
                         neighborNode.gCost= newMovementCostToNeigh
                         neighborNode.hCost = self.manhattanDistanceTwoPoints(neighborNode.pos,targetNodeCoord)
                         neighborNode.parent=currentNode
