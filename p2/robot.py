@@ -193,8 +193,8 @@ class Kalman():
         m = numpy.array([[c, c],[s, s]])
         self.systemModel.A[0:2, 3:5] = m
         self.systemModel.B[0:2, 0:2] = m
-        self.systemModel.R[3,3] = 0.015*(0.5*self.u[0,0] + 0.5*self.belief[3,0])
-        self.systemModel.R[4,4] = 0.015*(0.5*self.u[1,0] + 0.5*self.belief[4,0])
+        self.systemModel.R[3,3] = 0.015*abs(0.5*self.u[0,0] + 0.5*self.belief[3,0])
+        self.systemModel.R[4,4] = 0.015*abs(0.5*self.u[1,0] + 0.5*self.belief[4,0])
 
     def kalmanStep(self, measurements, irStd):
         z, tempC, Q= self.calcz(measurements, irStd)

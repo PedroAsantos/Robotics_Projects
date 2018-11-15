@@ -26,7 +26,7 @@ controller = Controller(robot)
 iteration = 0
 command=0
 dir=['right','right','right','up','left','up','right','right','up','right','right','right','right','right','down','left','right','down','down','right']
-
+#dir = ['right', 'right', 'right', 'right', 'right', 'right', 'right', 'right', 'right','right', 'right', 'up', 'up', 'left', 'right', 'down', 'down', 'left']
 while 1:
     if robot.isCentered:
         controller.move(dir[command])
