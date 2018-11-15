@@ -23,13 +23,19 @@ if interface.status!=0:
     quit()
 robot = Robot(interface, systemModel)
 controller = Controller(robot)
+map = Map()
 iteration = 0
 command=0
 dir=['right','right','right','up','left','up','right','right','up','right','right','right','right','right','down','left','right','down','down','right']
-#dir = ['right', 'right', 'right', 'right', 'right', 'right', 'right', 'right', 'right','right', 'right', 'up', 'up', 'left', 'right', 'down', 'down', 'left']
+controller.setControlValue()
+controller.setControlValue()
+
 while 1:
     if robot.isCentered:
-        controller.move(dir[command])
+        map.putWalls(robot.currentNode, robot.walls)
+        map.updateSizeMap(robot.currentNode)
+        #map.updateTargetNode()
+        controller.move(map.getMovementDirection(robot.currentNode,robot.orientation))
         command += 1
     controller.setControlValue()
     #Debug:

@@ -3,6 +3,7 @@ from croblink import CRobLinkAngs
 from copy import copy
 import operator
 import pdb
+from random import randint
 
 class Robot():
     def __init__(self, interface, systemModel):
@@ -260,64 +261,316 @@ class Map():
     def __init__(self):
         self.nodes=0
         self.map = []
-        xList= []
+        self.contDeletedX=[0,0] #cont to know how many lines from left/left were deleted
+        self.contDeletedY=[0,0] #cont to know how many lines from up/down were deleted
+        self.basePoint = (6,13)
         for y in range(6,-7,-1):
+            xList= []
             for x in range(-13,14):
                 node = Node((x,y))
                 xList.append(node)
             self.map.append(xList)
-            xList = []
-    def putWalls(self,currentNode,walls):
-        elementLocation= self.getElementLocation(currentNode)
+        self.targetIndex = (len(self.map)-1,len(self.map[0])-1)
+        self.lastMinimunDist = 1000
+        self.performingAStar=False
+        self.NodesOfAStart = []
+        self.indexNodeOfAStar = -1
+        self.historyPathNode=[]
+    def putWalls(self,currentNodeCoord,walls):
+
+        elementLocation = self.getElementLocation(currentNodeCoord)
         #add walls to the current position of the robot
         self.map[elementLocation[0]][elementLocation[1]].walls = walls
+
         #add walls to the nodes near this walls
         if walls[0]==1:
-            tempNodeAboveLocation = tuple(map(operator.add, elementLocation, (0,1)))
+            tempNodeAboveLocation = self.getElementLocation(tuple(map(operator.add, (0,1), currentNodeCoord)))
             if tempNodeAboveLocation[0] < len(self.map[0]) & tempNodeAboveLocation[1] < len(self.map):
-                walls = self.map[tempNodeAboveLocation[0]][tempNodeAboveLocation[1]].walls
-                walls[2]=1
-                self.map[tempNodeAboveLocation[0]][tempNodeAboveLocation[1]].walls=walls
+                self.map[tempNodeAboveLocation[0]][tempNodeAboveLocation[1]].walls[2]=1
         if walls[1]==1:
-            tempNodeEastLocation = tuple(map(operator.add, elementLocation, (1,0)))
+            tempNodeEastLocation = self.getElementLocation(tuple(tuple(map(operator.add, (1,0), currentNodeCoord))))
             if tempNodeEastLocation[0] < len(self.map[0]) & tempNodeEastLocation[1] < len(self.map):
-                walls = self.map[tempNodeEastLocation[0]][tempNodeEastLocation[1]].walls
-                walls[3]=1
-                self.map[tempNodeEastLocation[0]][tempNodeEastLocation[1]].walls=walls
+                self.map[tempNodeEastLocation[0]][tempNodeEastLocation[1]].walls[3]=1
         if walls[2]==1:
-            tempNodeBelowLocation = tuple(map(operator.add, elementLocation, (0,-1)))
+            tempNodeBelowLocation = self.getElementLocation(tuple(tuple(map(operator.add, (0,-1), currentNodeCoord))))
             if tempNodeBelowLocation[0] < len(self.map[0]) & tempNodeBelowLocation[1] < len(self.map):
-                walls = self.map[tempNodeBelowLocation[0]][tempNodeBelowLocation[1]].walls
-                walls[0]=1
-                self.map[tempNodeBelowLocation[0]][tempNodeBelowLocation[1]].walls=walls
+                self.map[tempNodeBelowLocation[0]][tempNodeBelowLocation[1]].walls[0]=1
+                #self.map[tempNodeBelowLocation[0]][tempNodeBelowLocation[1]]=node
         if walls[3]==1:
-            tempNodeWestLocation = tuple(map(operator.add, elementLocation, (-1,0)))
+            tempNodeWestLocation = self.getElementLocation(tuple(tuple(map(operator.add, (-1,0), currentNodeCoord))))
             if tempNodeWestLocation[0] < len(self.map[0]) & tempNodeWestLocation[1] < len(self.map):
-                walls = self.map[tempNodeWestLocation[0]][tempNodeWestLocation[1]].walls
-                walls[1]=1
-                self.map[tempNodeWestLocation[0]][tempNodeWestLocation[1]].walls=walls
-
-        print(self.map)
+                self.map[tempNodeWestLocation[0]][tempNodeWestLocation[1]].walls[1]=1
 
 
-    def getElementLocation(self, currentNode):
-        basePoint=(5,12)
-        return tuple(map(operator.add, basePoint, currentNode))
+    def getElementLocation(self, currentNodeCoord):
+        currentNodeCoord=currentNodeCoord[::-1]
+        currentNodeCoord= tuple(map(operator.mul, (-1,1), currentNodeCoord))
+        return tuple(map(operator.add, self.basePoint, currentNodeCoord))
 
+#    def updateTargetNode(self,mode=None):
+#        if self.targetIndex[0] > len(self.map)-1 or self.targetIndex[1] > len(self.map[0])-1:
+#            self.targetIndex = (len(self.map)-1,len(self.map[0])-1)
+#        if mode=="getPointInZoneLessKnown":
+    #        self.targetIndex = self.getPointInZoneLessKnown()
+    #    print(self.map[self.targetIndex[0]][self.targetIndex[1]])
+#        #if mode=="opposite":
+
+
+#    def getPointInZoneLessKnown(self):
+#        gridContList=[0,0,0,0,0,0]
+#        grid=0
+#        mapSizeX = len(self.map[0])
+#        mapSizeY = len(self.map)
+##        gridXSize=mapSizeX/3
+#        gridYSize=mapSizeY/2
+#        grid1Size = (mapSizeX-gridXSize*3,mapSizeY-gridYSize*2)
+#        sumgridX=gridXSize
+#        sumgridY=gridYSize
+#
+
+#        for y in range(0,2):
+#            if y==1:
+#                gridMap = self.map[gridYSize*y:(gridYSize+grid1Size[1])*(y+1)]
+#            else:
+#                gridMap = self.map[gridYSize*y:gridYSize*(y+1)]
+#            for x in range(0,3):
+#                for xList in gridMap:
+#                    if x==3:
+#                        gridXList = xList[gridXSize*x:(gridXSize+grid1Size[0])*(x+1)]
+#                    else:
+#                        gridXList = xList[gridXSize*x:gridXSize*(x+1)]
+#                    for n in gridXList:
+#                        if n.walls.count(-1)>0:
+#                            gridContList[grid]+=1
+
+#                grid+=1
+#        gridLessKnown = gridContList.index(max(gridContList))
+        #pdb.set_trace()
+#        if gridLessKnown==0:
+#            return (randint(0, gridYSize),randint(0, gridXSize))
+#        if gridLessKnown==1:
+#            return (randint(0, gridYSize),randint(gridXSize, gridXSize*2))
+#        if gridLessKnown==2:
+#            return (randint(0, gridYSize), randint(gridXSize*2, gridXSize*3))
+#        if gridLessKnown==3:
+#            return (randint(gridYSize, gridYSize*2),randint(0, gridXSize))
+#        if gridLessKnown==4:
+#            return (randint(gridYSize, gridYSize*2),randint(gridXSize, gridXSize*2))
+#        if gridLessKnown==5:
+#            return (randint(gridYSize, gridYSize*2),randint(gridXSize*2, gridXSize*3))
+
+
+
+
+#    def getDistanceOfEachNearNodeToTarget(self,walls,currentNode):
+#        dist=[1000,1000,1000,1000]
+#        targetNodeCoord= self.map[self.targetIndex[0]][self.targetIndex[1]].pos
+#
+#        if walls[0]==0:
+#            dist[0]= self.manhattanDistanceTwoPoints(tuple(tuple(map(operator.add, (0,1), currentNode))),targetNodeCoord)
+#        if walls[1]==0:
+#            dist[1]= self.manhattanDistanceTwoPoints(tuple(tuple(map(operator.add, (1,0), currentNode))),targetNodeCoord)
+#        if walls[2]==0:
+#            dist[2]= self.manhattanDistanceTwoPoints(tuple(tuple(map(operator.add, (0,-1), currentNode))),targetNodeCoord)
+#        if walls[3]==0:
+#            dist[3]= self.manhattanDistanceTwoPoints(tuple(tuple(map(operator.add, (-1,0), currentNode))),targetNodeCoord)
+#        return dist
+
+#    def getMovement(self, currentNode):
+#        elementLocation = self.getElementLocation(currentNode)
+#        walls = self.map[elementLocation[0]][elementLocation[1]].walls
+#        dist = self.getDistanceOfEachNearNodeToTarget(walls,currentNode)
+#
+#        if min(dist)> self.lastMinimunDist:
+#            self.updateTargetNode("getPointInZoneLessKnown")
+#
+#        minimunIndex= dist.index(min(dist))
+#
+#        self.lastMinimunDist = min(dist)
+#        print(dist)
+#        print(self.targetIndex)
+
+##        print(self.map[self.targetIndex[0]][self.targetIndex[1]])
+#        if minimunIndex == 0:
+#            return "up"
+#        if minimunIndex == 1:
+#            return "right"
+#        if minimunIndex == 2:
+#            return "down"
+#        return "left"
+    def getNeighbors(self,currentNodeCoord, walls):
+        neightborNodesCoord=[]
+        neighbors=[(0,1,walls[0],'north','up'),(1,0,walls[1],'east','right'),(0,-1,walls[2],'south','down'),(-1,0,walls[3],'west','left')]
+        for n in neighbors:
+            if n[2]!=1:
+                neighborCoord = tuple(tuple(map(operator.add, (n[0],n[1]), currentNodeCoord)))
+                neightborNodesCoord.append((neighborCoord[0],neighborCoord[1],n[3],n[4]))
+        return neightborNodesCoord
+
+    def getKnownNeighbors(self,neightborNodesCoord):
+        knownNeighbors=[]
+        for n in neightborNodesCoord:
+            nLocation =self.getElementLocation((n[0],n[1]))
+            if self.map[nLocation[0]][nLocation[1]].walls.count(-1)==0:
+                knownNeighbors.append(n)
+        return knownNeighbors
+
+    def getPath(self,startingNode,targetNode):
+        path=[]
+        currentNode=targetNode
+
+        while currentNode.pos!=startingNode.pos:
+            path.append(currentNode)
+            print(currentNode.pos)
+            currentNode = currentNode.parent
+        print("#getpath()")
+        print("path: "+str(path))
+        self.NodesOfAStart=path
+        self.performingAStar=True
+
+
+    def performAStart(self,startingNodeCoord,targetNodeCoord):
+        print("PerforminAStart")
+        print("startingNodeCoord: "+str(startingNodeCoord)+"targetNodeCoord: "+str(targetNodeCoord))
+        openSet = []
+        closedSet = []
+        currentElementLocation = self.getElementLocation(startingNodeCoord)
+        targetElementLocation = self.getElementLocation(targetNodeCoord)
+        startingNode = self.map[currentElementLocation[0]][currentElementLocation[1]]
+        openSet.append(startingNode)
+        targetNode = self.map[targetElementLocation[0]][targetElementLocation[1]]
+
+        while len(openSet)>0:
+            currentNode = openSet[0]
+
+            for n in openSet:
+                if n.getFcost() < currentNode.getFcost() or n.getFcost() == currentNode.getFcost() and n.hCost < currentNode.hCost:
+                    currentNode = n
+            openSet.remove(n)
+            closedSet.append(n)
+
+            if currentNode.pos==targetNode.pos:
+                self.getPath(startingNode,currentNode)
+
+            for neightborCoor in self.getKnownNeighbors(self.getNeighbors(currentNode.pos,currentNode.walls)):
+                neighIndex = self.getElementLocation((neightborCoor[0],neightborCoor[1]))
+                neighborNode = self.map[neighIndex[0]][neighIndex[1]]
+                if not (neighborNode in closedSet):
+                    newMovementCostToNeigh = currentNode.gCost + 1
+                    if newMovementCostToNeigh < neighborNode.gCost or not ( neighborNode in openSet):
+                        neighborNode.gCost= newMovementCostToNeigh
+                        neighborNode.hCost = self.manhattanDistanceTwoPoints(neighborNode.pos,targetNodeCoord)
+                        neighborNode.parent=currentNode
+
+                        if not (neighborNode in openSet):
+                            openSet.append(neighborNode)
+
+
+    def followingAStar(self,currentNodeCoord):
+        print(self.NodesOfAStart)
+        print(self.indexNodeOfAStar)
+        print(len(self.NodesOfAStart))
+        nodeToGo = self.NodesOfAStart[self.indexNodeOfAStar]
+
+        if self.indexNodeOfAStar==-len(self.NodesOfAStart):
+            self.indexNodeOfAStar=-1
+            self.NodesOfAStart=[]
+            self.performingAStar=False
+            for xList in self.map:
+                for node in xList:
+                    node.reset()
+        else:
+            self.indexNodeOfAStar-=1
+        if nodeToGo.pos[0]==currentNodeCoord[0]:
+            if nodeToGo.pos[1]<currentNodeCoord[1]:
+                return "down"
+            else:
+                return "up"
+        else:
+            if nodeToGo.pos[0]<currentNodeCoord[0]:
+                return "left"
+            else:
+                return "right"
+
+    def calculateTargetNodeToAStar(self):
+         for node in reversed(self.historyPathNode):
+             neighbors = self.getNeighbors(node.pos,node.walls)
+             for neight in neighbors:
+                 nodeLocation = self.getElementLocation((neight[0],neight[1]))
+                 if self.map[nodeLocation[0]][nodeLocation[1]].walls.count(-1)>0:
+                     return (node.pos)
+        #if somothing fails
+        #return self.historyPathNode[0].pos
+    def getDirectionOfNodeToGo(self,currentNodeCoord,walls,orientation):
+        if self.performingAStar:
+            return self.followingAStar(currentNodeCoord)
+
+        else:
+            unknownNeightborNodes=[]
+
+            neightborNodes = self.getNeighbors(currentNodeCoord,walls)
+            for n in neightborNodes:
+                nIndexLoc = self.getElementLocation((n[0],n[1]))
+                if self.map[nIndexLoc[0]][nIndexLoc[1]].walls.count(-1)>0:
+                    unknownNeightborNodes.append(n)
+
+            if len(unknownNeightborNodes)==0:
+                self.performAStart(currentNodeCoord,self.calculateTargetNodeToAStar())
+                return self.followingAStar(currentNodeCoord)
+                #do A* to closest unknown node?
+
+            #priority to follow the same orientation
+            for n in unknownNeightborNodes:
+                if n[2]==orientation:
+                    return n[3]
+            return unknownNeightborNodes[0][3]
+
+
+    def getMovementDirection(self, currentNodeCoord, orientation):
+         elementLocation = self.getElementLocation(currentNodeCoord)
+         currentNode = self.map[elementLocation[0]][elementLocation[1]]
+         self.historyPathNode.append(currentNode)
+         walls = currentNode.walls
+         directionNodeToGo = self.getDirectionOfNodeToGo(currentNodeCoord,walls,orientation)
+         return directionNodeToGo
+
+    def manhattanDistanceTwoPoints(self,p,q):
+        return abs(p[0]-q[0])+abs(p[1]-q[1])
+
+    def updateSizeMap(self, currentNodeCoord):
+        if currentNodeCoord[0] < 0 :
+            if -1*currentNodeCoord[0] > self.contDeletedX[0]:
+                self.removeMapLine("x","right")
+                self.contDeletedX[0]=self.contDeletedX[0]+1
+        else:
+            if currentNodeCoord[0] > self.contDeletedX[1]:
+                self.removeMapLine("x","left")
+                self.contDeletedX[1]=self.contDeletedX[1]+1
+        if currentNodeCoord[1] < 0 :
+            if -1*currentNodeCoord[1] > self.contDeletedY[0]:
+                self.removeMapLine("y","up")
+                self.contDeletedY[0]=self.contDeletedY[0]+1
+        else:
+            if currentNodeCoord[1] > self.contDeletedY[1]:
+                self.removeMapLine("y","down")
+                self.contDeletedY[1]=self.contDeletedY[1]+1
 
     def removeMapLine(self,coordinate,side):
         if coordinate=="x":
             if side == "left":
                 #self.map =
+                self.basePoint = tuple(tuple(map(operator.add, (0,-1), self.basePoint)))
                 [xList.pop(0) for xList in self.map ]
             else:
                 #self.map =
                  [xList.pop() for xList in self.map ]
         else:
             if side == "up":
+                self.basePoint = tuple(tuple(map(operator.add, (-1,0), self.basePoint)))
                 self.map.pop(0)
             else:
                 self.map.pop()
+
     def getMap(self):
         return self.map
     def __str__(self):
@@ -328,11 +581,38 @@ class Map():
             string+="\n"
             #string.join("\n")
         return string
-class Node():
-    def __init__(self, pos, walls = [-1, -1, -1, -1]):
+
+class NodeA():
+    def __init__(self, pos, walls = None):
         self.pos = pos
-        self.walls = walls
+        if walls is None:
+            self.walls = [-1,-1,-1,-1]
+        else:
+            self.walls=walls
+
+
     def __str__(self):
-     return ""+str(self.pos)
+     return ""+str(self.pos)+"->"+str(self.walls)
     def __repr__(self):
-     return ""+str(self.pos)
+     return ""+str(self.pos)+"->"+str(self.walls)
+
+class Node():
+    def __init__(self, pos, walls = None):
+        self.pos = pos
+        if walls is None:
+            self.walls = [-1,-1,-1,-1]
+        else:
+            self.walls=walls
+        self.gCost = 0
+        self.hCost = 0
+        self.parent = None
+    def getFcost(self):
+        return self.hCost + self.gCost
+    def reset(self):
+        self.gCost = 0
+        self.hCost = 0
+        self.parent = None
+    def __str__(self):
+     return ""+str(self.pos)+"->"+str(self.walls)
+    def __repr__(self):
+     return ""+str(self.pos)+"->"+str(self.walls)
