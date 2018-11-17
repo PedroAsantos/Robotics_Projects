@@ -275,8 +275,12 @@ class Map():
         self.lastMinimunDist = 1000
         self.performingAStar=False
         self.NodesOfAStart = []
+        self.closedSet=[]
+        self.inClosestNode=False
         self.indexNodeOfAStar = -1
         self.historyPathNode=[]
+        self.cheeseCoord=None
+        self.subStateExploring=0
     def putWalls(self,currentNodeCoord,walls):
 
         elementLocation = self.getElementLocation(currentNodeCoord)
@@ -308,97 +312,6 @@ class Map():
         currentNodeCoord= tuple(map(operator.mul, (-1,1), currentNodeCoord))
         return tuple(map(operator.add, self.basePoint, currentNodeCoord))
 
-#    def updateTargetNode(self,mode=None):
-#        if self.targetIndex[0] > len(self.map)-1 or self.targetIndex[1] > len(self.map[0])-1:
-#            self.targetIndex = (len(self.map)-1,len(self.map[0])-1)
-#        if mode=="getPointInZoneLessKnown":
-    #        self.targetIndex = self.getPointInZoneLessKnown()
-    #    print(self.map[self.targetIndex[0]][self.targetIndex[1]])
-#        #if mode=="opposite":
-
-
-#    def getPointInZoneLessKnown(self):
-#        gridContList=[0,0,0,0,0,0]
-#        grid=0
-#        mapSizeX = len(self.map[0])
-#        mapSizeY = len(self.map)
-##        gridXSize=mapSizeX/3
-#        gridYSize=mapSizeY/2
-#        grid1Size = (mapSizeX-gridXSize*3,mapSizeY-gridYSize*2)
-#        sumgridX=gridXSize
-#        sumgridY=gridYSize
-#
-
-#        for y in range(0,2):
-#            if y==1:
-#                gridMap = self.map[gridYSize*y:(gridYSize+grid1Size[1])*(y+1)]
-#            else:
-#                gridMap = self.map[gridYSize*y:gridYSize*(y+1)]
-#            for x in range(0,3):
-#                for xList in gridMap:
-#                    if x==3:
-#                        gridXList = xList[gridXSize*x:(gridXSize+grid1Size[0])*(x+1)]
-#                    else:
-#                        gridXList = xList[gridXSize*x:gridXSize*(x+1)]
-#                    for n in gridXList:
-#                        if n.walls.count(-1)>0:
-#                            gridContList[grid]+=1
-
-#                grid+=1
-#        gridLessKnown = gridContList.index(max(gridContList))
-        #pdb.set_trace()
-#        if gridLessKnown==0:
-#            return (randint(0, gridYSize),randint(0, gridXSize))
-#        if gridLessKnown==1:
-#            return (randint(0, gridYSize),randint(gridXSize, gridXSize*2))
-#        if gridLessKnown==2:
-#            return (randint(0, gridYSize), randint(gridXSize*2, gridXSize*3))
-#        if gridLessKnown==3:
-#            return (randint(gridYSize, gridYSize*2),randint(0, gridXSize))
-#        if gridLessKnown==4:
-#            return (randint(gridYSize, gridYSize*2),randint(gridXSize, gridXSize*2))
-#        if gridLessKnown==5:
-#            return (randint(gridYSize, gridYSize*2),randint(gridXSize*2, gridXSize*3))
-
-
-
-
-#    def getDistanceOfEachNearNodeToTarget(self,walls,currentNode):
-#        dist=[1000,1000,1000,1000]
-#        targetNodeCoord= self.map[self.targetIndex[0]][self.targetIndex[1]].pos
-#
-#        if walls[0]==0:
-#            dist[0]= self.manhattanDistanceTwoPoints(tuple(tuple(map(operator.add, (0,1), currentNode))),targetNodeCoord)
-#        if walls[1]==0:
-#            dist[1]= self.manhattanDistanceTwoPoints(tuple(tuple(map(operator.add, (1,0), currentNode))),targetNodeCoord)
-#        if walls[2]==0:
-#            dist[2]= self.manhattanDistanceTwoPoints(tuple(tuple(map(operator.add, (0,-1), currentNode))),targetNodeCoord)
-#        if walls[3]==0:
-#            dist[3]= self.manhattanDistanceTwoPoints(tuple(tuple(map(operator.add, (-1,0), currentNode))),targetNodeCoord)
-#        return dist
-
-#    def getMovement(self, currentNode):
-#        elementLocation = self.getElementLocation(currentNode)
-#        walls = self.map[elementLocation[0]][elementLocation[1]].walls
-#        dist = self.getDistanceOfEachNearNodeToTarget(walls,currentNode)
-#
-#        if min(dist)> self.lastMinimunDist:
-#            self.updateTargetNode("getPointInZoneLessKnown")
-#
-#        minimunIndex= dist.index(min(dist))
-#
-#        self.lastMinimunDist = min(dist)
-#        print(dist)
-#        print(self.targetIndex)
-
-##        print(self.map[self.targetIndex[0]][self.targetIndex[1]])
-#        if minimunIndex == 0:
-#            return "up"
-#        if minimunIndex == 1:
-#            return "right"
-#        if minimunIndex == 2:
-#            return "down"
-#        return "left"
     def getNeighbors(self,currentNodeCoord, walls):
         neightborNodesCoord=[]
         neighbors=[(0,1,walls[0],'north','up'),(1,0,walls[1],'east','right'),(0,-1,walls[2],'south','down'),(-1,0,walls[3],'west','left')]
@@ -416,6 +329,14 @@ class Map():
                 knownNeighbors.append(n)
         return knownNeighbors
 
+    def getUnknownNeighbors(self,neightborNodesCoord):
+        unknownNeighbors=[]
+        for n in neightborNodesCoord:
+            nLocation =self.getElementLocation((n[0],n[1]))
+            if self.map[nLocation[0]][nLocation[1]].walls.count(-1)>1:
+                unknownNeighbors.append(n)
+
+        return unknownNeighbors
     def getPath(self,startingNode,targetNode):
         path=[]
         currentNode=targetNode
@@ -426,23 +347,33 @@ class Map():
             currentNode = currentNode.parent
         print("#getpath()")
         print("path: "+str(path))
-        self.NodesOfAStart=path
-        self.performingAStar=True
+        return path
 
-    def checkIfNodeIsInList(self,list,nodeToCheck):
+    def checkIfNodeIsInList(self,list,nodeToCheck,currentNode):
         for node in list:
-            if node.pos == nodeToCheck.pos and node.parent==nodeToCheck.pos:
-                return True
+            if not (node.parent is None):
+                if node.pos == nodeToCheck.pos and node.parent.pos==currentNode.pos:
+                    return True
         return False
-
-    def performAStart(self,startingNodeCoord,targetNodeCoord):
+    def removeNodeFromList(self,list,nodeToDelete):
+        for node in list:
+            if not (node.parent is None):
+                if node.pos == nodeToDelete.pos and node.parent==nodeToDelete.parent:
+                    nodeToDelete = node
+                    break
+        list.remove(nodeToDelete)
+        return list
+    def performAStar(self,startingNodeCoord,targetNodeCoord,saveClosedSet=False):
         print("PerforminAStart")
         print("startingNodeCoord: "+str(startingNodeCoord)+"targetNodeCoord: "+str(targetNodeCoord))
+        #ensure that AStar is reset
+        self.resetAStar("soft")
         openSet = []
         closedSet = []
         currentElementLocation = self.getElementLocation(startingNodeCoord)
         targetElementLocation = self.getElementLocation(targetNodeCoord)
         startingNode = self.map[currentElementLocation[0]][currentElementLocation[1]]
+
         openSet.append(deepcopy(startingNode))
         targetNode = self.map[targetElementLocation[0]][targetElementLocation[1]]
 
@@ -452,50 +383,62 @@ class Map():
             for n in openSet:
                 if n.getFcost() < currentNode.getFcost() or (n.getFcost() == currentNode.getFcost() and n.hCost < currentNode.hCost):
                     currentNode = n
-            openSet.remove(currentNode)
+
+            openSet = self.removeNodeFromList(openSet,currentNode)
+            #openSet.remove(currentNode)
             closedSet.append(currentNode)
 
             if currentNode.pos==targetNode.pos:
-                self.getPath(startingNode,currentNode)
-                break
-            neigh = self.getKnownNeighbors(self.getNeighbors(currentNode.pos,currentNode.walls))
-            print(currentNode.pos)
-            print(neigh)
+                if saveClosedSet:
+                    self.closedSet = deepcopy(closedSet)
+                return self.getPath(startingNode,currentNode)
             #print(openSet)
+            #print(currentNode)
             #if currentNode.pos == (6,2) and openSet[0].pos==(3,2):
             #    pdb.set_trace()
-            for neightborCoor in neigh:
+            for neightborCoor in self.getKnownNeighbors(self.getNeighbors(currentNode.pos,currentNode.walls)):
                 neighIndex = self.getElementLocation((neightborCoor[0],neightborCoor[1]))
                 neighborNode = deepcopy(self.map[neighIndex[0]][neighIndex[1]])
 
-                if not self.checkIfNodeIsInList(closedSet,neighborNode):
+                if not self.checkIfNodeIsInList(closedSet,neighborNode,currentNode):
                 #if not (neighborNode in closedSet):
                     newMovementCostToNeigh = currentNode.gCost + 1
-                    if newMovementCostToNeigh < neighborNode.gCost or not self.checkIfNodeIsInList(openSet,neighborNode):
+                    if newMovementCostToNeigh < neighborNode.gCost or not self.checkIfNodeIsInList(openSet,neighborNode,currentNode):
                     #if newMovementCostToNeigh < neighborNode.gCost or not ( neighborNode in openSet):
                         neighborNode.gCost= newMovementCostToNeigh
                         neighborNode.hCost = self.manhattanDistanceTwoPoints(neighborNode.pos,targetNodeCoord)
                         neighborNode.parent=currentNode
-
-                        if not (neighborNode in openSet):
+                        #neighborNode.unknownNeigh = self.getUnknownNeighbors(self.getNeighbors(neighborNode.pos,neighborNode.walls))
+                        if not self.checkIfNodeIsInList(openSet,neighborNode,currentNode):
                             openSet.append(neighborNode)
 
 
-    def followingAStar(self,currentNodeCoord):
-        print(self.NodesOfAStart)
-        print(self.indexNodeOfAStar)
-        print(len(self.NodesOfAStart))
-        nodeToGo = self.NodesOfAStart[self.indexNodeOfAStar]
-
-        if self.indexNodeOfAStar==-len(self.NodesOfAStart):
+    def resetAStar(self,mode):
+        if mode=="hard":
+            print("hard reset to AStar")
             self.indexNodeOfAStar=-1
             self.NodesOfAStart=[]
+            self.closedSet=[]
             self.performingAStar=False
             for xList in self.map:
                 for node in xList:
                     node.reset()
         else:
+            for xList in self.map:
+                for node in xList:
+                    node.reset()
+
+    def getDirectionOfAStar(self,currentNodeCoord):
+        print(self.NodesOfAStart)
+        print(self.indexNodeOfAStar)
+        print(len(self.NodesOfAStart))
+        nodeToGo = self.NodesOfAStart[self.indexNodeOfAStar]
+        print(self.NodesOfAStart[self.indexNodeOfAStar])
+        if self.indexNodeOfAStar==-len(self.NodesOfAStart):
+            self.resetAStar("hard")
+        else:
             self.indexNodeOfAStar-=1
+
         if nodeToGo.pos[0]==currentNodeCoord[0]:
             if nodeToGo.pos[1]<currentNodeCoord[1]:
                 return "down"
@@ -518,36 +461,187 @@ class Map():
         #return self.historyPathNode[0].pos
     def getDirectionOfNodeToGo(self,currentNodeCoord,walls,orientation):
         if self.performingAStar:
-            return self.followingAStar(currentNodeCoord)
+            return self.getDirectionOfAStar(currentNodeCoord)
 
         else:
             unknownNeightborNodes=[]
 
-            neightborNodes = self.getNeighbors(currentNodeCoord,walls)
-            for n in neightborNodes:
-                nIndexLoc = self.getElementLocation((n[0],n[1]))
-                if self.map[nIndexLoc[0]][nIndexLoc[1]].walls.count(-1)>0:
-                    unknownNeightborNodes.append(n)
-
+            unknownNeightborNodes = self.getUnknownNeighbors(self.getNeighbors(currentNodeCoord,walls))
             if len(unknownNeightborNodes)==0:
-                self.performAStart(currentNodeCoord,self.calculateTargetNodeToAStar())
-                return self.followingAStar(currentNodeCoord)
+                self.NodesOfAStart=self.performAStar(currentNodeCoord,self.calculateTargetNodeToAStar())
+                self.performingAStar=True
+                return self.getDirectionOfAStar(currentNodeCoord)
                 #do A* to closest unknown node?
-
+            print(unknownNeightborNodes)
             #priority to follow the same orientation
             for n in unknownNeightborNodes:
-                if n[2]==orientation:
+                #if n[2]==orientation:
+                if n[2]=='north':
                     return n[3]
+
             return unknownNeightborNodes[0][3]
 
+    def calculateNodeToExplore(self,path):
+        for node in reversed(path):
+            unknowkNeighbors= self.getUnknownNeighbors(self.getNeighbors(node.pos,node.walls))
+            if len(unknowkNeighbors)>0:
+                return node
 
-    def getMovementDirection(self, currentNodeCoord, orientation):
-         elementLocation = self.getElementLocation(currentNodeCoord)
-         currentNode = self.map[elementLocation[0]][elementLocation[1]]
-         self.historyPathNode.append(currentNode)
-         walls = currentNode.walls
-         directionNodeToGo = self.getDirectionOfNodeToGo(currentNodeCoord,walls,orientation)
-         return directionNodeToGo
+    def getMovementDirectionStateExploringMap(self, currentNodeCoord, orientation):
+        elementLocation = self.getElementLocation(currentNodeCoord)
+        currentNode = self.map[elementLocation[0]][elementLocation[1]]
+        self.historyPathNode.append(currentNode)
+        walls = currentNode.walls
+        directionNodeToGo = self.getDirectionOfNodeToGo(currentNodeCoord,walls,orientation)
+
+        return directionNodeToGo
+
+    def findPathOfClosestUnknownNode(self,currentNodeCoord):
+        #unknownNodes = []
+        minFcost=1000;
+        for n in self.closedSet:
+        #    print(n.getFcost())
+        #    print(self.getUnknownNeighbors(self.getNeighbors(n.pos,n.walls)))
+            if len(self.getUnknownNeighbors(self.getNeighbors(n.pos,n.walls)))>0:
+                if n.getFcost() < minFcost:
+                    minFcost,nodeMinFCost = n.getFcost(), n
+        #        unknownNodes.append(n)
+
+        bestPath=self.performAStar(currentNodeCoord,nodeMinFCost.pos)
+        #print(unknownNodes)
+#        bestPath = self.performAStar(currentNodeCoord,unknownNodes[0].pos)
+#        closestDistance, closestNode = len(bestPath),unknownNodes[0]
+#
+#        for i in range(1,len(unknownNodes)):
+#            print(unknownNodes[i])
+#            path = self.performAStar(currentNodeCoord,unknownNodes[i].pos)
+#            if len(path) < closestDistance:
+#                closestDistance, closestNode, bestPath = len(path), unknownNodes[i], path
+#        print("BEST!!")
+#        print((closestDistance, closestNode, bestPath))
+        return bestPath
+
+    def checkIfCurrentCoordIsInClosedSetUnknown(self,currentNodeCoord):
+        print("?????????????????????????????????? checkIfCheeseCordIsInClosedSet ??????????????????????????????????")
+        print(self.closedSet)
+        print(self.cheeseCoord)
+        for n in self.closedSet:
+            if n.pos == (currentNodeCoord[0],currentNodeCoord[1]):
+                if len(self.getUnknownNeighbors(self.getNeighbors(n.pos,n.walls)))>0:
+                    return True
+        return False
+
+    def getMovementDirectionToFindBestPath(self,currentNodeCoord,orientation):
+        print("$$$$$$$$$$$$$$$$$$$$$$$$ getMovementDirectionToFindBestPath $$$$$$$$$$$$$$$$$$$$$$$$$$$$")
+        if self.performingAStar:
+            return self.getDirectionOfAStar(currentNodeCoord)
+        else:
+            print("getMovementDirectionToFindBestPath")
+            if not self.inClosestNode:
+                path = self.performAStar(self.cheeseCoord,[0,0],True)
+                #if not self.checkIfCurrentCoordIsInClosedSetUnknown(currentNodeCoord):
+                print("not self.checkIfCheeseCordIsInClosedSet()")
+                path = self.findPathOfClosestUnknownNode(currentNodeCoord)
+                self.inClosestNode=True
+                if len(path)!=0:
+                    self.NodesOfAStart = path
+                    self.performingAStar=True
+                    return self.getDirectionOfAStar(currentNodeCoord)
+
+
+            elementLocation = self.getElementLocation(currentNodeCoord)
+            currentNode = self.map[elementLocation[0]][elementLocation[1]]
+            #self.historyPathNode.append(currentNode)
+            walls = currentNode.walls
+
+            unknownNeightborNodes=[]
+
+            unknownNeightborNodes = self.getUnknownNeighbors(self.getNeighbors(currentNodeCoord,walls))
+            minimunManhantanDistance=1000
+            for n in unknownNeightborNodes:
+                manhantanDistance = self.manhattanDistanceTwoPoints((n[0],n[1]),[0,0])
+                if manhantanDistance<minimunManhantanDistance:
+                    minimunManhantanDistance,nodeWithMinimunDistance = manhantanDistance,n
+            print("Closest NeightBoor Unknown -> "+str(nodeWithMinimunDistance))
+            self.inClosestNode=False
+            return nodeWithMinimunDistance[3]
+
+        #    if len(unknownNeightborNodes)==0:
+        #        knownNeighbors = self.getNeighbors(currentNodeCoord,walls)
+        #        for n in knownNeighbors:
+        #            if n[2]==orientation:
+        #                return n[3]
+        #        return knownNeighbors[0]
+        #    else:
+        #        return unknownNeightborNodes[0][3]
+
+#    def getMovementDirectionStateExploringMapAfterCheese(self, currentNodeCoord, orientation):
+#        if self.performingAStar:
+#            return self.getDirectionOfAStar(currentNodeCoord)
+#        else:
+#            if self.subStateExploring==0: #state to check if all the nodes are knwo around best path of known nodes
+#                path = self.performAStar(self.cheeseCoord,[0,0])
+#                if not self.checkIfAllNeightboursOfPathAreKnow(path):
+#                    nodeToGo = self.calculateNodeToExplore(path)
+#                    self.NodesOfAStart = self.performAStar(currentNodeCoord,nodeToGo.pos)
+#                    self.performingAStar=True
+#                    self.subStateExploring=1
+#                    return self.getDirectionOfAStar(currentNodeCoord)
+#                else:
+#                    self.NodesOfAStart = self.performAStar(currentNodeCoord,self.cheeseCoord)
+#                    self.performingAStar=True
+#                    self.subStateExploring=2
+#                    return self.getDirectionOfAStar(currentNodeCoord)
+#            if self.subStateExploring==1:
+#                elementLocation = self.getElementLocation(currentNodeCoord)
+#                currentNode = self.map[elementLocation[0]][elementLocation[1]]
+#                self.historyPathNode.append(currentNode)
+#                walls = currentNode.walls
+#                #done only for horizontal paths
+#                unknownNeighbors = self.getUnknownNeighbors(self.getNeighbors(currentNode.pos, currentNode.walls))
+#                if len(unknownNeighbors)>0:
+#                    (minimunDistance,unknownNeigh)=self.manhattanDistanceTwoPoints([0,0],[unknownNeighbors[0][0],unknownNeighbors[0][1]]),unknownNeighbors[0]
+#
+#                    for n in unknownNeighbors:
+#                         if self.manhattanDistanceTwoPoints([0,0], [n[0],n[1]])< minimunDistance:
+#                             (minimunDistance,unknownNeigh)=self.manhattanDistanceTwoPoints([0,0],[n[0],n[1]]),n
+#
+#                    return unknownNeigh[3]
+#                else:
+#                    path = self.performAStar(self.cheeseCoord,[0,0])
+#                    if len(path) == self.manhattanDistanceTwoPoints(self.cheeseCoord,[0,0]):
+#                        self.NodesOfAStart = self.performAStar(currentNodeCoord,self.cheeseCoord)
+#                        self.performingAStar=True
+#                        self.subStateExploring=2
+#                        return self.getDirectionOfAStar(currentNodeCoord)
+#                    if not self.checkIfAllNeightboursOfPathAreKnow(path):
+#                        nodeToGo = self.calculateNodeToExplore(path)
+#                        self.NodesOfAStart = self.performAStar(currentNodeCoord,nodeToGo.pos)
+#                        self.performingAStar=True
+#                        self.subStateExploring=1
+#                        return self.getDirectionOfAStar(currentNodeCoord)
+#                    else:
+#                        print("###################GOING TO CHEESE#############################")
+#                        self.NodesOfAStart = self.performAStar(currentNodeCoord,self.cheeseCoord)
+#                        self.performingAStar=True
+#                        self.subStateExploring=2
+#                        return self.getDirectionOfAStar(currentNodeCoord)
+
+    def getMovementDirectionToGoToCheese(self, currentNodeCoord, orientation):
+        print("getMovementDirectionToGoToCheese")
+        if self.performingAStar:
+            return self.getDirectionOfAStar(currentNodeCoord)
+        self.NodesOfAStart = self.performAStar(currentNodeCoord,self.cheeseCoord)
+        self.performingAStar=True
+        return self.getDirectionOfAStar(currentNodeCoord)
+
+    def getMovementDirectionFinal(self, currentNodeCoord, orientation):
+        print("getMovementDirectionFinal")
+        if self.performingAStar:
+            return self.getDirectionOfAStar(currentNodeCoord)
+        self.NodesOfAStart = self.performAStar(currentNodeCoord,[0,0])
+        self.performingAStar=True
+        return self.getDirectionOfAStar(currentNodeCoord)
 
     def manhattanDistanceTwoPoints(self,p,q):
         return abs(p[0]-q[0])+abs(p[1]-q[1])
@@ -586,8 +680,43 @@ class Map():
             else:
                 self.map.pop()
 
-    def getMap(self):
-        return self.map
+    def checkIfAllClosedNodesAreKnown(self):
+        print("checkIfAllClosedNodesAreKnown")
+        print(self.closedSet)
+        print(len(self.closedSet))
+        for n in self.closedSet:
+            if len(self.getUnknownNeighbors(self.getNeighbors(n.pos,n.walls)))>0:
+                return False
+        return True
+
+    def checkIfBestPathIsAvailable(self,currentNodeCoord):
+         finalNodeCoord=[0,0]
+         path = self.performAStar(self.cheeseCoord,finalNodeCoord,True)
+         print("checkIfBestPathIsAvailable")
+         #print(len(path),self.manhattanDistanceTwoPoints(self.cheeseCoord,finalNodeCoord))
+         print(path)
+         if len(path) == self.manhattanDistanceTwoPoints(self.cheeseCoord,finalNodeCoord):
+             self.NodesOfAStart=path
+             self.performingAStar=True
+             print("manhattanDistanceTwoPoints")
+             return True
+
+         if self.checkIfAllClosedNodesAreKnown():
+             print("checkIfAllClosedNodesAreKnown")
+             return True
+    #     if self.checkIfMapIsExploredBetweenTwoNodes(initialNodeCoord,finalNodeCoord):
+    #         self.NodesOfAStart=path
+    #         self.performingAStar=True
+    #         return True
+
+    #     if self.checkIfAllNeightboursOfPathAreKnow(path):
+    #         return True
+
+         return False
+
+    def saveCheeseCoord(self,currentNodeCoord):
+        self.cheeseCoord = currentNodeCoord
+
     def __str__(self):
         string = ""
         for x in self.map:
@@ -597,19 +726,6 @@ class Map():
             #string.join("\n")
         return string
 
-class NodeA():
-    def __init__(self, pos, walls = None):
-        self.pos = pos
-        if walls is None:
-            self.walls = [-1,-1,-1,-1]
-        else:
-            self.walls=walls
-
-
-    def __str__(self):
-     return ""+str(self.pos)+"->"+str(self.walls)
-    def __repr__(self):
-     return ""+str(self.pos)+"->"+str(self.walls)
 
 class Node():
     def __init__(self, pos, walls = None):
@@ -621,12 +737,14 @@ class Node():
         self.gCost = 0
         self.hCost = 0
         self.parent = None
+        #self.unknownNeigh = None
     def getFcost(self):
         return self.hCost + self.gCost
     def reset(self):
         self.gCost = 0
         self.hCost = 0
         self.parent = None
+        #self.unknownNeigh = None
     def __str__(self):
      return ""+str(self.pos)+"->"+str(self.walls)
     def __repr__(self):

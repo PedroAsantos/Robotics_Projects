@@ -16,6 +16,13 @@ from croblink import CRobLinkAngs
 # If the robot still bumps into a wall it will return to its original position
 ###############################################################################
 
+EXPLORINGMAP=0
+EXPLORINGMAPAFTERCHEESE=1
+RETURNINGTOCHEESE=2
+RETURNINGTOBASE=3
+
+
+
 interface = CRobLinkAngs('speedy', 0, [0.0,90.0,180.0,-90.0], 'localhost')
 systemModel = SystemModel()
 if interface.status!=0:
@@ -29,13 +36,49 @@ command=0
 dir=['right','right','right','up','left','up','right','right','up','right','right','right','right','right','down','left','right','down','down','right']
 controller.setControlValue()
 controller.setControlValue()
-
+state = EXPLORINGMAP
 while 1:
     if robot.isCentered:
-        map.putWalls(robot.currentNode, robot.walls)
-        map.updateSizeMap(robot.currentNode)
-        #map.updateTargetNode()
-        controller.move(map.getMovementDirection(robot.currentNode,robot.orientation))
+        if state == EXPLORINGMAP:
+            map.putWalls(robot.currentNode, robot.walls)
+            map.updateSizeMap(robot.currentNode)
+            #map.updateTargetNode()
+            if robot.currentNode == [5,-2]:#robot.measurements.ground==0:
+                print("#####################################CHEESE######################################")
+                map.saveCheeseCoord(robot.currentNode)
+                interface.setVisitingLed(1)
+                if map.checkIfBestPathIsAvailable(robot.currentNode):
+                    print("RETURNINGTOBASE")
+                    state = RETURNINGTOBASE
+                else:
+                    #map.resetAStar("hard")
+                    state = EXPLORINGMAPAFTERCHEESE
+            else:
+                controller.move(map.getMovementDirectionStateExploringMap(robot.currentNode,robot.orientation))
+
+        if state == EXPLORINGMAPAFTERCHEESE:
+            map.putWalls(robot.currentNode, robot.walls)
+            map.updateSizeMap(robot.currentNode)
+
+            if map.checkIfBestPathIsAvailable(robot.currentNode):
+                state = RETURNINGTOCHEESE
+                map.resetAStar("hard")
+            else:
+                controller.move(map.getMovementDirectionToFindBestPath(robot.currentNode,robot.orientation))
+
+        if state == RETURNINGTOCHEESE:
+            if robot.currentNode == map.cheeseCoord:
+                state = RETURNINGTOBASE
+            else:
+                controller.move(map.getMovementDirectionToGoToCheese(robot.currentNode,robot.orientation))
+
+        if state == RETURNINGTOBASE:
+            print("RETURNINGTOBASE")
+            if robot.currentNode != [0,0]:
+                controller.move(map.getMovementDirectionFinal(robot.currentNode,robot.orientation))
+            else:
+                interface.setReturningLed(1)
+                print("END!!!!")
         command += 1
     controller.setControlValue()
     #Debug:
