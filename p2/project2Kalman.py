@@ -43,7 +43,7 @@ while 1:
             map.putWalls(robot.currentNode, robot.walls)
             map.updateSizeMap(robot.currentNode)
             #map.updateTargetNode()
-            if robot.currentNode == [5,-2]:#robot.measurements.ground==0:
+            if robot.measurements.ground==0: # if robot.currentNode == [10,0]:
                 print("#####################################CHEESE######################################")
                 map.saveCheeseCoord(robot.currentNode)
                 interface.setVisitingLed(1)
