@@ -499,15 +499,17 @@ class Map():
     def findPathOfClosestUnknownNode(self,currentNodeCoord):
         #unknownNodes = []
         minFcost=1000;
+        minHCost=1000;
         for n in self.closedSet:
         #    print(n.getFcost())
         #    print(self.getUnknownNeighbors(self.getNeighbors(n.pos,n.walls)))
             if len(self.getUnknownNeighbors(self.getNeighbors(n.pos,n.walls)))>0:
-                if n.getFcost() < minFcost:
-                    minFcost,nodeMinFCost = n.getFcost(), n
+                if n.getFcost() <= minFcost:
+                    if n.hCost < minHCost:
+                        minFcost, minHCost,nodeMinCost = n.getFcost(), n.hCost, n
         #        unknownNodes.append(n)
 
-        bestPath=self.performAStar(currentNodeCoord,nodeMinFCost.pos)
+        bestPath=self.performAStar(currentNodeCoord,nodeMinCost.pos)
         #print(unknownNodes)
 #        bestPath = self.performAStar(currentNodeCoord,unknownNodes[0].pos)
 #        closestDistance, closestNode = len(bestPath),unknownNodes[0]
@@ -689,6 +691,22 @@ class Map():
                 return False
         return True
 
+    def checkIfClosestNodeWithLowerCostIsBase(self):
+        print("checkIfClosestNodeWithLowerCostIsBase")
+        minFcost=1000;
+        minHCost=1000;
+        for n in self.closedSet:
+        #    print(n.getFcost())
+        #    print(self.getUnknownNeighbors(self.getNeighbors(n.pos,n.walls)))
+            if len(self.getUnknownNeighbors(self.getNeighbors(n.pos,n.walls)))>0:
+                if n.getFcost() <= minFcost:
+                    if n.hCost < minHCost:
+                        minFcost, minHCost,nodeMinCost = n.getFcost(), n.hCost, n
+        print(nodeMinCost)
+        if nodeMinCost.pos == [0,0]:
+            return True
+        return False
+
     def checkIfBestPathIsAvailable(self,currentNodeCoord):
          finalNodeCoord=[0,0]
          path = self.performAStar(self.cheeseCoord,finalNodeCoord,True)
@@ -703,6 +721,9 @@ class Map():
 
          if self.checkIfAllClosedNodesAreKnown():
              print("checkIfAllClosedNodesAreKnown")
+             return True
+
+         if self.checkIfClosestNodeWithLowerCostIsBase():
              return True
     #     if self.checkIfMapIsExploredBetweenTwoNodes(initialNodeCoord,finalNodeCoord):
     #         self.NodesOfAStart=path
