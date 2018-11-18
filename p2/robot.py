@@ -22,6 +22,7 @@ class Robot():
     def motorAction(self, u):               #apply control input u
         if (not self.measurements.start) or (self.measurements.stop):
             u = [0, 0]
+            print('Simulator stop condition: Disabling drives')
         self.Kalman.setU(u)
         self.interface.driveMotors(u[1],u[0])
     def getMeasurements(self):              #get measurements from interface
