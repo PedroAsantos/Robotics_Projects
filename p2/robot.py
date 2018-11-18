@@ -703,7 +703,7 @@ class Map():
                     if n.hCost < minHCost:
                         minFcost, minHCost,nodeMinCost = n.getFcost(), n.hCost, n
         print(nodeMinCost)
-        if nodeMinCost.pos == [0,0]:
+        if nodeMinCost.pos == (0,0):
             return True
         return False
 
