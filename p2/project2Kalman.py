@@ -32,8 +32,8 @@ robot = Robot(interface, systemModel)
 controller = Controller(robot)
 map = Map()
 iteration = 0
-command=0
-dir=['right','right','right','up','left','up','right','right','up','right','right','right','right','right','down','left','right','down','down','right']
+#command=0
+#dir=['right','right','right','up','left','up','right','right','up','right','right','right','right','right','down','left','right','down','down','right']
 controller.setControlValue()
 controller.setControlValue()
 state = EXPLORINGMAP
@@ -43,11 +43,11 @@ while 1:
             map.putWalls(robot.currentNode, robot.walls)
             map.updateSizeMap(robot.currentNode)
             #map.updateTargetNode()
-            if robot.currentNode == [3,-1]: # robot.measurements.ground==0: # 
+            if robot.currentNode == [10,2]: # robot.measurements.ground==0: #
                 print("#####################################CHEESE######################################")
                 map.saveCheeseCoord(robot.currentNode)
                 interface.setVisitingLed(1)
-                if map.checkIfBestPathIsAvailable(robot.currentNode):
+                if map.checkIfBestPathIsAvailable():
                     print("RETURNINGTOBASE")
                     state = RETURNINGTOBASE
                 else:
@@ -60,7 +60,7 @@ while 1:
             map.putWalls(robot.currentNode, robot.walls)
             map.updateSizeMap(robot.currentNode)
 
-            if map.checkIfBestPathIsAvailable(robot.currentNode):
+            if map.checkIfBestPathIsAvailable():
                 state = RETURNINGTOCHEESE
                 map.resetAStar("hard")
             else:
@@ -79,7 +79,7 @@ while 1:
             else:
                 interface.setReturningLed(1)
                 print("END!!!!")
-        command += 1
+        #command += 1
     controller.setControlValue()
     #Debug:
     iteration += 1
