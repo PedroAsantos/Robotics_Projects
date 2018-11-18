@@ -18,11 +18,7 @@ robot = Robot(interface, systemModel)
 controller = Controller(robot)
 map = Map()
 iteration = 0
-<<<<<<< HEAD
-#command=0
-#dir=['right','right','right','up','left','up','right','right','up','right','right','right','right','right','down','left','right','down','down','right']
-=======
->>>>>>> 9c49e5ec7e45f8762cf09039eb9a1c0a2ba4c7e0
+
 controller.setControlValue()
 controller.setControlValue()
 state = EXPLORINGMAP
@@ -68,10 +64,6 @@ while 1:
             else:
                 interface.setReturningLed(1)
                 print("END!!!!")
-<<<<<<< HEAD
-        #command += 1
-=======
->>>>>>> 9c49e5ec7e45f8762cf09039eb9a1c0a2ba4c7e0
     controller.setControlValue()
     #Debug:
     #iteration += 1
