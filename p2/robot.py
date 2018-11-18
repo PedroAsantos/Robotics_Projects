@@ -445,7 +445,7 @@ class Map():
                 return "left"
             else:
                 return "right"
-
+    #function to calculate the nearest unknown node from the path that the robot did
     def calculateTargetNodeToAStar(self):
          for node in reversed(self.historyPathNode):
              neighbors = self.getNeighbors(node.pos,node.walls)
@@ -453,7 +453,7 @@ class Map():
                  nodeLocation = self.getElementLocation((neight[0],neight[1]))
                  if self.map[nodeLocation[0]][nodeLocation[1]].walls.count(-1)>0:
                      return (node.pos)
-
+    #Auxiliar function to get the direction when exploring the map
     def getDirectionOfNodeToGo(self,currentNodeCoord,walls,orientation):
         if self.performingAStar:
             return self.getDirectionOfAStar(currentNodeCoord)
@@ -467,7 +467,7 @@ class Map():
                 self.NodesOfAStart=self.performAStar(currentNodeCoord,targetNodeCoord)
                 self.performingAStar=True
                 return self.getDirectionOfAStar(currentNodeCoord)
-            
+
             print(unknownNeightborNodes)
             #if to garanty that doesnt' explode the program
             if len(unknownNeightborNodes)!=0:
@@ -485,13 +485,7 @@ class Map():
                         return n[3]
 
                 return knownNeighbors[0][3]
-
-    def calculateNodeToExplore(self,path):
-        for node in reversed(path):
-            unknowkNeighbors= self.getUnknownNeighbors(self.getNeighbors(node.pos,node.walls))
-            if len(unknowkNeighbors)>0:
-                return node
-
+    #function to explore map until it finds cheese
     def getMovementDirectionStateExploringMap(self, currentNodeCoord, orientation):
         elementLocation = self.getElementLocation(currentNodeCoord)
         currentNode = self.map[elementLocation[0]][elementLocation[1]]
@@ -500,7 +494,7 @@ class Map():
         directionNodeToGo = self.getDirectionOfNodeToGo(currentNodeCoord,walls,orientation)
 
         return directionNodeToGo
-
+    #function to get the path to the node with unknown neighbours and lower cost from th closed set from the algorithm Astar
     def findPathOfClosestUnknownNode(self,currentNodeCoord):
         minFcost=1000;
         minHCost=1000;
@@ -514,16 +508,7 @@ class Map():
 
         return bestPath
 
-    def checkIfCurrentCoordIsInClosedSetUnknown(self,currentNodeCoord):
-        print("?????????????????????????????????? checkIfCheeseCordIsInClosedSet ??????????????????????????????????")
-        print(self.closedSet)
-        print(self.cheeseCoord)
-        for n in self.closedSet:
-            if n.pos == (currentNodeCoord[0],currentNodeCoord[1]):
-                if len(self.getUnknownNeighbors(self.getNeighbors(n.pos,n.walls)))>0:
-                    return True
-        return False
-
+    #function to find the best path between the cheese and the start point
     def getMovementDirectionToFindBestPath(self,currentNodeCoord,orientation):
         print("$$$$$$$$$$$$$$$$$$$$$$$$ getMovementDirectionToFindBestPath $$$$$$$$$$$$$$$$$$$$$$$$$$$$")
         if self.performingAStar:
@@ -532,7 +517,7 @@ class Map():
             print("getMovementDirectionToFindBestPath")
             if not self.inClosestNode:
                 path = self.performAStar(self.cheeseCoord,[0,0],True)
-                #if not self.checkIfCurrentCoordIsInClosedSetUnknown(currentNodeCoord):
+
                 print("not self.checkIfCheeseCordIsInClosedSet()")
                 path = self.findPathOfClosestUnknownNode(currentNodeCoord)
                 self.inClosestNode=True
@@ -541,10 +526,9 @@ class Map():
                     self.performingAStar=True
                     return self.getDirectionOfAStar(currentNodeCoord)
 
-
             elementLocation = self.getElementLocation(currentNodeCoord)
             currentNode = self.map[elementLocation[0]][elementLocation[1]]
-            #self.historyPathNode.append(currentNode)
+
             walls = currentNode.walls
 
             unknownNeightborNodes=[]
@@ -558,7 +542,7 @@ class Map():
             print("Closest NeightBoor Unknown -> "+str(nodeWithMinimunDistance))
             self.inClosestNode=False
             return nodeWithMinimunDistance[3]
-
+    #function to get the direction to go to cheese
     def getMovementDirectionToGoToCheese(self, currentNodeCoord, orientation):
         print("getMovementDirectionToGoToCheese")
         if self.performingAStar:
@@ -566,7 +550,7 @@ class Map():
         self.NodesOfAStart = self.performAStar(currentNodeCoord,self.cheeseCoord)
         self.performingAStar=True
         return self.getDirectionOfAStar(currentNodeCoord)
-
+    #function to get the direction to go to the initial point
     def getMovementDirectionFinal(self, currentNodeCoord, orientation):
         print("getMovementDirectionFinal")
         if self.performingAStar:

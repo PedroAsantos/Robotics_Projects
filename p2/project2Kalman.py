@@ -54,6 +54,7 @@ while 1:
         if state == RETURNINGTOCHEESE:
             if robot.currentNode == map.cheeseCoord:
                 state = RETURNINGTOBASE
+                interface.setReturningLed(1)
             else:
                 controller.move(map.getMovementDirectionToGoToCheese(robot.currentNode,robot.orientation))
 
@@ -62,7 +63,7 @@ while 1:
             if robot.currentNode != [0,0]:
                 controller.move(map.getMovementDirectionFinal(robot.currentNode,robot.orientation))
             else:
-                interface.setReturningLed(1)
+                interface.setReturningLed(0)
                 print("END!!!!")
     controller.setControlValue()
     #Debug:
