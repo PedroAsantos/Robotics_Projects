@@ -68,12 +68,7 @@ while 1:
             if robot.currentNode != [0,0]:
                 controller.move(navigation.getMovementDirectionFinal(robot.currentNode,robot.orientation))
             else:
-<<<<<<< HEAD
-                #interface.setReturningLed(0)
-                interface.setReturningLed(0)
-=======
                 interface.finish()
->>>>>>> b77d8593fe7b9acf71dde5149184b79d2b595cea
                 print("END!!!!")
     controller.setControlValue()
     #Debug:
