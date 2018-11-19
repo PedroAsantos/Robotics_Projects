@@ -32,7 +32,7 @@ while 1:
             navigation.putWalls(robot.currentNode, robot.walls)
             navigation.updateSizeMap(robot.currentNode)
 
-            if robot.currentNode == [8,1]: #robot.measurements.ground==0: #
+            if robot.measurements.ground==0: #robot.currentNode == [2,-1]: #
                 navigation.saveCheeseCoord(robot.currentNode)
                 interface.setVisitingLed(1)
                 if navigation.checkIfBestPathIsAvailable():
