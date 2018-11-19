@@ -29,12 +29,12 @@ while 1:
             navigation.updateSizeMap(robot.currentNode)
 
             if robot.measurements.ground==0: #robot.currentNode == [3,-1]:
-                print("#####################################CHEESE######################################")
                 navigation.saveCheeseCoord(robot.currentNode)
                 interface.setVisitingLed(1)
                 if navigation.checkIfBestPathIsAvailable():
-                    print("RETURNINGTOBASE")
                     state = RETURNINGTOBASE
+                    interface.setVisitingLed(0)
+                    interface.setReturningLed(1)
                 else:
                     #map.resetAStar("hard")
                     state = EXPLORINGMAPAFTERCHEESE
@@ -64,6 +64,7 @@ while 1:
             if robot.currentNode != [0,0]:
                 controller.move(navigation.getMovementDirectionFinal(robot.currentNode,robot.orientation))
             else:
+                #interface.setReturningLed(0)
                 interface.setReturningLed(0)
                 print("END!!!!")
     controller.setControlValue()
