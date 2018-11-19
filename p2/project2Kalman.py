@@ -7,9 +7,13 @@ EXPLORINGMAPAFTERCHEESE=1
 RETURNINGTOCHEESE=2
 RETURNINGTOBASE=3
 
+if len(sys.argv)<=1:
+    print("No host IP given. Trying localhost")
+    host = 'localhost'
+else:
+    host = sys.argv[1]
 
-
-interface = CRobLinkAngs('speedy', 0, [0.0,90.0,180.0,-90.0], 'localhost')
+interface = CRobLinkAngs('speedy', 0, [0.0,90.0,180.0,-90.0], host)
 systemModel = SystemModel()
 if interface.status!=0:
     print "Connection refused or error"
@@ -39,6 +43,7 @@ while 1:
                     #map.resetAStar("hard")
                     state = EXPLORINGMAPAFTERCHEESE
             else:
+                interface.setVisitingLed(0)
                 controller.move(navigation.getMovementDirectionStateExploringMap(robot.currentNode,robot.orientation))
 
         if state == EXPLORINGMAPAFTERCHEESE:
@@ -54,17 +59,16 @@ while 1:
         if state == RETURNINGTOCHEESE:
             if robot.currentNode == navigation.cheeseCoord:
                 state = RETURNINGTOBASE
-                interface.setVisitingLed(0)
-                interface.setReturningLed(1)
             else:
                 controller.move(navigation.getMovementDirectionToGoToCheese(robot.currentNode,robot.orientation))
 
         if state == RETURNINGTOBASE:
             print("RETURNINGTOBASE")
+            interface.setReturningLed(1)
             if robot.currentNode != [0,0]:
                 controller.move(navigation.getMovementDirectionFinal(robot.currentNode,robot.orientation))
             else:
-                interface.setReturningLed(0)
+                interface.finish()
                 print("END!!!!")
     controller.setControlValue()
     #Debug:
