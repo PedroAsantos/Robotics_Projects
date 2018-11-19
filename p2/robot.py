@@ -507,7 +507,7 @@ class Navigation():
 
     #function to find the best path between the cheese and the start point
     def getMovementDirectionToFindBestPath(self,currentNodeCoord,orientation):
-        print("$$$$$$$$$$$$$$$$$$$$$$$$ getMovementDirectionToFindBestPath $$$$$$$$$$$$$$$$$$$$$$$$$$$$")
+        print("getMovementDirectionToFindBestPath")
         if self.performingAStar:
             return self.getDirectionOfAStar(currentNodeCoord)
         else:
@@ -536,7 +536,16 @@ class Navigation():
                 manhantanDistance = self.manhattanDistanceTwoPoints((n[0],n[1]),[0,0])
                 if manhantanDistance<minimunManhantanDistance:
                     minimunManhantanDistance,nodeWithMinimunDistance = manhantanDistance,n
-            print("Closest NeightBoor Unknown -> "+str(nodeWithMinimunDistance))
+        #    print("Closest NeightBoor Unknown -> "+str(nodeWithMinimunDistance))
+            #verification to ensure
+            if len(unknownNeightborNodes)==0:
+                for n in self.getKnownNeighbors(self.getNeighbors(currentNodeCoord,walls))[0][3]:
+                    manhantanDistance = self.manhattanDistanceTwoPoints((n[0],n[1]),[0,0])
+                    if manhantanDistance<minimunManhantanDistance:
+                        minimunManhantanDistance,nodeWithMinimunDistance = manhantanDistance,n
+                self.inClosestNode=False
+                return nodeWithMinimunDistance[3]
+
             self.inClosestNode=False
             return nodeWithMinimunDistance[3]
 
