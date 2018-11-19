@@ -40,10 +40,9 @@ while 1:
                     state = RETURNINGTOBASE
                 else:
                     #map.resetAStar("hard")
-                    interface.setVisitingLed(0)
                     state = EXPLORINGMAPAFTERCHEESE
             else:
-                #interface.setVisitingLed(0)
+                interface.setVisitingLed(0)
                 controller.move(navigation.getMovementDirectionStateExploringMap(robot.currentNode,robot.orientation))
 
         if state == EXPLORINGMAPAFTERCHEESE:
@@ -65,10 +64,8 @@ while 1:
 
         if state == RETURNINGTOBASE:
             print("RETURNINGTOBASE")
-            if interface.measures.visitingLed==1:
-                interface.setVisitingLed(0)
-            if interface.measures.returningLed==1:
-                interface.setReturningLed(0)
+            if interface.measures.returningLed==0:
+                interface.setReturningLed(1)
             if robot.currentNode != [0,0]:
                 controller.move(navigation.getMovementDirectionFinal(robot.currentNode,robot.orientation))
             else:
