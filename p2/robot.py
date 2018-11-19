@@ -15,7 +15,7 @@ class Robot():
         self.currentNode = [0, 0]           #[n_x, n_y]
         self.targetNode = [0, 0]            #[n_x, n_y]
         self.Kalman = Kalman(copy(self.state), systemModel)
-        self.map = Map()
+        self.map = Navigation()
         self.orientation = ''               #general robot direction (e.g. east)
         self.irStd = []
         self.getMeasurements()
@@ -259,9 +259,8 @@ class Kalman():
 
 ###### functions for the discrete world ########
 
-class Map():
+class Navigation():
     def __init__(self):
-        self.nodes=0
         self.map = []
         self.contDeletedX=[0,0] #cont to know how many lines from left/left were deleted
         self.contDeletedY=[0,0] #cont to know how many lines from up/down were deleted
@@ -272,7 +271,6 @@ class Map():
                 node = Node((x,y))
                 xList.append(node)
             self.map.append(xList)
-        self.targetIndex = (len(self.map)-1,len(self.map[0])-1)
         self.performingAStar=False
         self.NodesOfAStart = []
         self.closedSet=[]
@@ -280,7 +278,6 @@ class Map():
         self.indexNodeOfAStar = -1
         self.historyPathNode=[]
         self.cheeseCoord=None
-
     #function to update the walls in the current node and the a index position of each neighbor cells
     def putWalls(self,currentNodeCoord,walls):
 
@@ -542,6 +539,7 @@ class Map():
             print("Closest NeightBoor Unknown -> "+str(nodeWithMinimunDistance))
             self.inClosestNode=False
             return nodeWithMinimunDistance[3]
+
     #function to get the direction to go to cheese
     def getMovementDirectionToGoToCheese(self, currentNodeCoord, orientation):
         print("getMovementDirectionToGoToCheese")
@@ -550,6 +548,16 @@ class Map():
         self.NodesOfAStart = self.performAStar(currentNodeCoord,self.cheeseCoord)
         self.performingAStar=True
         return self.getDirectionOfAStar(currentNodeCoord)
+
+    #function to write to file the map and best path
+    def writeToFileMapAndBestPath(self):
+        file = open("map.txt","w")
+        file.write(str(self.map))
+        file.write("\n")
+        file.write("Best Path: ")
+        file.write(str(self.NodesOfAStart))
+        file.close()
+
     #function to get the direction to go to the initial point
     def getMovementDirectionFinal(self, currentNodeCoord, orientation):
         print("getMovementDirectionFinal")
@@ -557,6 +565,7 @@ class Map():
             return self.getDirectionOfAStar(currentNodeCoord)
         self.NodesOfAStart = self.performAStar(currentNodeCoord,[0,0])
         self.performingAStar=True
+        self.writeToFileMapAndBestPath()
         return self.getDirectionOfAStar(currentNodeCoord)
 
     #function to calculate manhantan distance of 2 given points

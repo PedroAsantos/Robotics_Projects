@@ -16,7 +16,7 @@ if interface.status!=0:
     quit()
 robot = Robot(interface, systemModel)
 controller = Controller(robot)
-map = Map()
+navigation = Navigation()
 iteration = 0
 
 controller.setControlValue()
@@ -25,43 +25,44 @@ state = EXPLORINGMAP
 while 1:
     if robot.isCentered:
         if state == EXPLORINGMAP:
-            map.putWalls(robot.currentNode, robot.walls)
-            map.updateSizeMap(robot.currentNode)
-            #map.updateTargetNode()
+            navigation.putWalls(robot.currentNode, robot.walls)
+            navigation.updateSizeMap(robot.currentNode)
+
             if robot.measurements.ground==0: #robot.currentNode == [3,-1]:
                 print("#####################################CHEESE######################################")
-                map.saveCheeseCoord(robot.currentNode)
+                navigation.saveCheeseCoord(robot.currentNode)
                 interface.setVisitingLed(1)
-                if map.checkIfBestPathIsAvailable():
+                if navigation.checkIfBestPathIsAvailable():
                     print("RETURNINGTOBASE")
                     state = RETURNINGTOBASE
                 else:
                     #map.resetAStar("hard")
                     state = EXPLORINGMAPAFTERCHEESE
             else:
-                controller.move(map.getMovementDirectionStateExploringMap(robot.currentNode,robot.orientation))
+                controller.move(navigation.getMovementDirectionStateExploringMap(robot.currentNode,robot.orientation))
 
         if state == EXPLORINGMAPAFTERCHEESE:
-            map.putWalls(robot.currentNode, robot.walls)
-            map.updateSizeMap(robot.currentNode)
+            navigation.putWalls(robot.currentNode, robot.walls)
+            navigation.updateSizeMap(robot.currentNode)
 
-            if map.checkIfBestPathIsAvailable():
+            if navigation.checkIfBestPathIsAvailable():
                 state = RETURNINGTOCHEESE
-                map.resetAStar("hard")
+                navigation.resetAStar("hard")
             else:
-                controller.move(map.getMovementDirectionToFindBestPath(robot.currentNode,robot.orientation))
+                controller.move(navigation.getMovementDirectionToFindBestPath(robot.currentNode,robot.orientation))
 
         if state == RETURNINGTOCHEESE:
-            if robot.currentNode == map.cheeseCoord:
+            if robot.currentNode == navigation.cheeseCoord:
                 state = RETURNINGTOBASE
+                interface.setVisitingLed(0)
                 interface.setReturningLed(1)
             else:
-                controller.move(map.getMovementDirectionToGoToCheese(robot.currentNode,robot.orientation))
+                controller.move(navigation.getMovementDirectionToGoToCheese(robot.currentNode,robot.orientation))
 
         if state == RETURNINGTOBASE:
             print("RETURNINGTOBASE")
             if robot.currentNode != [0,0]:
-                controller.move(map.getMovementDirectionFinal(robot.currentNode,robot.orientation))
+                controller.move(navigation.getMovementDirectionFinal(robot.currentNode,robot.orientation))
             else:
                 interface.setReturningLed(0)
                 print("END!!!!")
