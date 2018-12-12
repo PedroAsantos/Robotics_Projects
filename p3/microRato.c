@@ -6,57 +6,132 @@
 
 
 
-enum states { EXPLORINGMAP, FINDINGBESTPATH, GOINGTOTOKEN, GOINGTOBASE };
+enum states { EXPLORINGMAP, FINDINGBESTPATH, GOINGTOTOKEN, GOINGTOBASE } state;
+enum directions { NORTH, EAST, SOUTH, WEST} dir;
+enum movementstate { MOVING, EXPECTINGCOMMAND, CENTERING } movstate;
+double x, y, t, dx, dy;
+const double d = 12.5; //grid distance
+const int forwardSpeed = 40;
+const int slowTurn     =  5;
+const int fastTurn     = 15;
 
 
-void rotateRel_basic(int speed, double deltaAngle);
 void rotateRel(int maxVel, double deltaAngle);
+void motorCommand(int comR, int comL, int *buffer);
+int stabledetection(int *sensorBuffer, int state);
 void updateMap();
 
 int main(void)
 {
     int groundSensor;
-
     initPIC32();
     closedLoopControl( true );
     setVel2(0, 0);
-    //initial state
-    enum states state = EXPLORINGMAP;
-    bool updateAvailable=false;
-    bool isIntersection=false;
-
-    printf("RMI-example, robot %d\n\n\n", ROBOT);
+    printf("MicroRato, robot %d\n\n\n", ROBOT);
 
     while(1)
     {
         printf("Press start to continue\n");
         while(!startButton());
+        //Initial state
         enableObstSens();
+        state    = EXPLORINGMAP;
+        movstate = MOVING;
+        int     motorBuffer [2][6] = { {0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0} }; //TODO: move
+        int     sensorBuffer   [5] = { 0, 0, 0, 0, 0 }; //TODO: move
+        int     node [2]           = {0, 0};
+        int     paths              = 0b1000;    //bits: north, east, south, west
+        int     groundStable       = 0b00000;
+        double  beaconX            = 0.0;
+        double  beaconY            = 0.0;
+        bool    updateAvailable    = true;
 
-        rotateRel(100, M_PI / 2);
-        //      setVel2(70, 70);
         do
         {
             waitTick40ms();						// Wait for next 40ms tick
             readAnalogSensors();				// Fill in "analogSensors" structure
             groundSensor = readLineSensors(0);	// Read ground sensor
-            printf("Obst_left=%03d, Obst_center=%03d, Obst_right=%03d, Bat_voltage=%03d, Ground_sens=",
-                    analogSensors.obstSensLeft,
-                    analogSensors.obstSensFront,
-                    analogSensors.obstSensRight,
-                    analogSensors.batteryVoltage);
+            //get robot position
+            getRobotPos(&x, &y, &t);
+            dx = x - beaconX;
+            dy = y - beaconY;
+            // update ground sensor buffer
+            for(i=0; i<=3; i++){
+              sensorBuffer[i] = sensorBuffer[i+1];
+            }
+            sensorBuffer[4] = groundSensor;
 
-            printInt(groundSensor, 2 | 5 << 16);	// System call
-            printf("\n");
+            switch (movstate){
+              case MOVING:
+                if (fmax( abs(dx), abs(dy) ) >= d + 1.0){ //detect straight path
+                  updateAvailable = true;
+                  paths = 0b1010;
+                  nextNode(*node, dir);
+                  beaconX = x;
+                  beaconY = y;
+                  if(abs(dx) > abs(dy)){    //correct offset of 1.0
+                    beaconX += -sgn(dx);
+                  }else{
+                    beaconY += -sgn(dy);
+                  }
+                }
+                groundStable = stabledetection(*sensorBuffer, 1);
+                if (groundStable & 0b10001){      //detect intersection
+                  movstate = CENTERING;
+                  beaconX = x;
+                  beaconY = y;
+                }
+                // line following algorithm
+                switch(groundSensor & 0b01110){      //lookup table for behavior
+                  case 0b01110:
+                    comL = forwardSpeed;
+                    comR = forwardSpeed;
+                  break;
+                  case 0b00100:
+                    comL = forwardSpeed;
+                    comR = forwardSpeed;
+                  break;
+                  case 0b01100:
+                    comL = forwardSpeed - slowTurn;
+                    comR = forwardSpeed + slowTurn;
+                  break;
+                  case 0b00110:
+                    comL = forwardSpeed + slowTurn;
+                    comR = forwardSpeed - slowTurn;
+                  break;
+                  case 0b01000:
+                    comL = forwardSpeed - fastTurn;
+                    comR = forwardSpeed + fastTurn;
+                  break;
+                  case 0b00010:
+                    comL = forwardSpeed + fastTurn;
+                    comR = forwardSpeed - fastTurn;
+                  break;
+              break;
+              case CENTERING:
+                comL = forwardSpeed/2;
+                comR = forwardSpeed/2;
+                groundStable = stabledetection(*sensorBuffer, 0);
 
-
-            
+                //move forward until center
+                //analyse sensor data ->create node
+                //check for finish line
+                //if edge turn and move forward ->MOVING
+                //if intersection -> EXPECTINGCOMMAND + zero velocity twice
+              break;
+              case EXPECTINGCOMMAND:
+                comL = 0;
+                comR = 0;
+              break;
+            }
+            motorCommand(comR, comL, *motorBuffer);
 
             if(updateAvailable){
               updateMap();
-              updateAvailable=false;
+              updateAvailable = false;
             }
-            if(isIntersection){
+
+            if(movstate == EXPECTINGCOMMAND){
                 switch (state) {
                   case EXPLORINGMAP:
 
@@ -74,13 +149,9 @@ int main(void)
             }
 
 
-
-
-
         } while(!stopButton());
         disableObstSens();
-        rotateRel(100, -M_PI / 2);
-        //      setVel2(0, 0);
+        setVel2(0, 0);
     }
     return 0;
 }
@@ -91,17 +162,23 @@ void updateMap(){
 
 }
 
+int stabledetection(int *sensorBuffer, int state){
+return 0;
+}
 
-#define KP_ROT	40
-#define KI_ROT	5
+void motorCommand(int newValue[2], int *buffer){
 
-// deltaAngle in radians
-void rotateRel(int maxVel, double deltaAngle)
-{
+setVel2(0, 0);
+}
+
+
+void rotateRel(int maxVel, double deltaAngle){
     double x, y, t;
     double targetAngle;
     double error;
     double integral = 0;
+    double KP_ROT = 50;
+    double KI_ROT	= 0;
     int cmdVel;
 
     getRobotPos(&x, &y, &t);
@@ -122,29 +199,5 @@ void rotateRel(int maxVel, double deltaAngle)
 
         setVel2(-cmdVel, cmdVel);
     } while (fabs(error) > 0.01);
-    setVel2(0, 0);
-}
-
-
-void rotateRel_basic(int speed, double deltaAngle)
-{
-    double x, y, t;
-    double targetAngle;
-    double error;
-    int cmdVel, errorSignOri;
-
-    getRobotPos(&x, &y, &t);
-    targetAngle = normalizeAngle(t + deltaAngle);
-    error = normalizeAngle(targetAngle - t);
-    errorSignOri = error < 0 ? -1 : 1;
-
-    cmdVel = error < 0 ? -speed : speed;
-    setVel2(-cmdVel, cmdVel);
-
-    do
-    {
-        getRobotPos(&x, &y, &t);
-        error = normalizeAngle(targetAngle - t);
-    } while (fabs(error) > 0.01 && errorSignOri * error > 0);
     setVel2(0, 0);
 }

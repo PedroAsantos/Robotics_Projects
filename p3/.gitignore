@@ -1,0 +1,5 @@
+*.hex
+*.elf
+*.map
+*.o
+/Project1.c
