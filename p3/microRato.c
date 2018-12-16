@@ -5,32 +5,32 @@
 #include <math.h>
 #include <string.h>
 #include <stdlib.h>
-// TODO: Implement functions, implement bluetooth, draw state machine
+// TODO: Implement functions,  draw state machine, measure robot radius
 
-enum states { EXPLORINGMAP, FINDINGBESTPATH, GOINGTOTOKEN, GOINGTOBASE } state;
-enum directions { NORTH = 8, EAST = 4, SOUTH = 2, WEST = 1} dir;
-enum movementstate { MOVING, EXPECTINGCOMMAND, CENTERING } movstate;
-enum relative { FRONT, BACK, LEFT, RIGHT} relDir;
+typedef enum { EXPLORINGMAP, FINDINGBESTPATH, GOINGTOTOKEN, GOINGTOBASE } states;
+typedef enum { NORTH = 8, EAST = 4, SOUTH = 2, WEST = 1} directions;
+typedef enum { MOVING, EXPECTINGCOMMAND, CENTERING } movementstate;
+typedef enum { FRONT = 0, BACK = 2, LEFT = 1, RIGHT = 3} relative;
 double x, y, t, dx, dy;
 const double d = 125; //grid distance in [mm]
-const double robotRadius = 100;       //TODO: measure
-const int forwardSpeed = 45;
-const int slowTurn     =  4;
-const int fastTurn     = 10;
+const double robotRadius = 100;
+const int    forwardSpeed = 45;
+const int    slowTurn     =  4;
+const int    fastTurn     = 10;
 
 
 void rotateRel(int maxVel, double deltaAngle);
-void motorCommand(int comR, int comL, int *buffer);
-int stabledetection(int groundSensor);
-int flipdir( int dir, int turnAngle);
-void nextNode(int *node, int dir);
-void updateMap();
+void motorCommand(int comR, int comL);
+int stabledetection(int groundSensor, bool dump);
+int flipdir( directions dir, relative turn);
+void nextNode(int *node, directions dir);
+void updateMap(int *node, int paths);
 int sumofbits(int number);
-void moverel(int dir, int currentDir);
+void moverel(directions *dir, relative turn);
+void moveabs(directions *dir, directions absolute);
 
 int main(void)
 {
-    int groundSensor;
     initPIC32();
     configBTUart(3, 115200); // Configure Bluetooth UART
     bt_on();     // enable bluetooth channel; printf
@@ -44,13 +44,13 @@ int main(void)
         printf("Press start to continue\n");
         while(!startButton());
         //Initial state
-        enableObstSens();
-        state    = EXPLORINGMAP;
-        movstate = MOVING;
-        dir      = NORTH;
-        int     motorBuffer [2][6] = {{0}}; //TODO: move
+        //enableObstSens();         //Not needed
+        states        state    = EXPLORINGMAP;
+        movementstate movstate = MOVING;
+        directions    dir      = NORTH;
         int     node [2]           = {0};
         int     paths              = 0b1000;    //bits: north, east, south, west
+        int     groundSensor       = 0b00000;
         int     groundStable       = 0b00000;   //debounced groundSensor
         int     groundLR           = 0b00000;   //Tigger left/right sensor
         int     comL               = 0;         //left motor command
@@ -60,6 +60,7 @@ int main(void)
         double  distToBeacon       = 0.0;
         bool    updateAvailable    = true;      //true when new node discovered
 
+        groundSensor = stabledetection(groundSensor, true);
 
         do
         {
@@ -70,7 +71,7 @@ int main(void)
             getRobotPos(&x, &y, &t);
             dx = x - beaconX;
             dy = y - beaconY;
-            groundStable = stabledetection(groundSensor);
+            groundStable = stabledetection(groundSensor, false);
             switch (movstate){
 
               case MOVING:
@@ -86,7 +87,7 @@ int main(void)
                     beaconY -= 10*sgn(dy);
                   }
                 }
-                if (groundStable == 0){    //dead end detected
+                if ( (groundStable == 0) && (fmax( abs(dx), abs(dy) ) >= d - robotRadius) ){    //dead end detected
                   updateAvailable = true;
                   paths = flipdir(dir, BACK);
                   nextNode(node, dir);
@@ -97,11 +98,11 @@ int main(void)
                   }else{
                     beaconY += (robotRadius - 10.0)*sgn(dy);
                   }
-                  moverel(BACK, dir);
+                  moverel(&dir, BACK);
                   dir = flipdir(dir, BACK);
                   break;
                 }
-                if (groundStable & 0b10001){      //detect intersection
+                if (groundStable & 0b10001){      //intersection detected
                   movstate = CENTERING;
                   groundLR = 0;
                   comL = 0;
@@ -175,10 +176,10 @@ int main(void)
                   if (sumofbits(paths & 0b01111) == 2){   //no intersection, just turn
                     movstate = MOVING;
                     if ( paths & flipdir(dir, LEFT) ){    //left turn only option
-                      moverel(LEFT, dir);
+                      moverel(&dir, LEFT);
                       dir = flipdir(dir, LEFT);
                     }else if ( paths & flipdir(dir, RIGHT) ){ //right turn only option
-                      moverel(RIGHT, dir);
+                      moverel(&dir, RIGHT);
                       dir = flipdir(dir, RIGHT);
                     }
                   }else{        //intersection
@@ -193,16 +194,26 @@ int main(void)
               break;
             }
 
-            motorCommand(comR, comL, *motorBuffer);
+            motorCommand(comR, comL);
             if(updateAvailable){
-              updateMap();
+              updateMap(node, paths);
               updateAvailable = false;
             }
 
             if(movstate == EXPECTINGCOMMAND){
                 switch (state) {
                   case EXPLORINGMAP:
-
+                    //algorithm for exploring north
+                    if(paths & 0b010000){
+                      moveabs(&dir, NORTH);
+                    }else if(paths & 0b001000){
+                      moveabs(&dir, EAST);
+                    }else if(paths & 0b010000){
+                      moveabs(&dir, SOUTH);
+                    }else{
+                      moveabs(&dir, WEST);
+                    }
+                    printf("Dir %d; state: %d; dist: %.0f; %.0f; node: %d; %d; grSt: %d; update: %d\n", dir, movstate, dx, dy, node[0], node[1], groundStable, updateAvailable);
                   break;
                   case FINDINGBESTPATH:
 
@@ -225,55 +236,134 @@ int main(void)
 }
 
 
-
-void updateMap(){
+void updateMap(int *node, int paths){
 
 }
 
-int stabledetection(int groundSensor){  //TODO    //TODO: dump buffer after turning
+int stabledetection(int groundSensor, bool dump){
+  const int l = 5;
+  static int sensorBuffer[5] = {0};
+  static int state = 0b00100;
+  int i, j, curState;
+  bool trigger;
 
-  static int sensorBuffer[5] = { 0, 0, 0, 0, 0 };
-  // update ground sensor buffer
-  int i;
-  for( i=0; i<=3; i++){
-    sensorBuffer[i] = sensorBuffer[i+1];
+  for( i = 0; i < l-1; i++){     //update ground sensor buffer
+    if (dump){
+      sensorBuffer[i] = 0;
+    }else{
+      sensorBuffer[i] = sensorBuffer[i+1];
+    }
   }
-  sensorBuffer[4] = groundSensor;
-  return 0;
+  sensorBuffer[l-1] = groundSensor;
+  if (dump){
+    state = 0b00100;        //reset state after dump
+  }
+  for (i = 0; i < l; i++){     //check for stable signal
+    curState = (state >> i) & 0b00001;
+    trigger = true;
+    for (j = 0; j < l; j++) {
+      if ( (sensorBuffer[j] >> i) & (0b00001 == curState) ){
+        trigger = false;
+      }
+      if (trigger){
+        state ^= (0b00001 << i);       //toggle sensor bit
+      }
+    }
+  }
+  return state;
 }
 
-void motorCommand(int comR, int comL, int *buffer){     //TODO
+void motorCommand(int comR, int comL){
+  const int len = 6;
+  static int motorBuffer[2][6] = {{0}};
+  int l, r, i;
 
-setVel2(0, 0);
+  for( i = 0; i < len-1; i++){     //update motor buffer
+      motorBuffer[0][i] = motorBuffer[0][i+1];
+      motorBuffer[1][i] = motorBuffer[1][i+1];
+  }
+  motorBuffer[0][len-1] = comR;
+  motorBuffer[0][len-1] = comL;
+  l = 0;
+  r = 0;
+  for( i = 0; i < len-1; i++){     //calculate mean values of buffer
+      r += motorBuffer[0][i]/len;
+      l += motorBuffer[1][i]/len;
+  }
+  setVel2(r, l);
 }
 
-void nextNode(int *node, int dir){          //TODO
+void nextNode(int *node, directions dir){
+  int incrementX = 0;
+  int incrementY = 0;
 
-}
-
-int sumofbits(int number){              //TODO
-  return 0;
-}
-
-int flipdir( int dir, int turnAngle){     //TODO
-  return 0;
-}
-
-void moverel(int dir, int currentDir){
   switch (dir){
-    case 1:
-
+    case NORTH:
+      incrementX += 1;
     break;
-    case 2:
-
+    case EAST:
+      incrementY -= 1;
     break;
-    case 3:
-
+    case SOUTH:
+      incrementX -= 1;
     break;
-
-    case 4:
-
+    case WEST:
+      incrementY += 1;
     break;
+    }
+    node[0] += incrementX;
+    node[1] += incrementY;
+}
+
+int sumofbits(int number){
+  int sum = 0;
+
+  while(number > 0){
+    sum += number&0b000001;
+    number >>= 1;
+  }
+  return sum;
+}
+
+int flipdir( directions dir, relative turn){
+int temp = dir;
+int upper, lower;
+
+temp <<= turn;
+upper = temp >> 4;
+lower = temp & 0b1111;
+return (upper | lower);
+}
+
+void moverel(directions *dir, relative turn){
+  switch (turn){
+    case FRONT:
+      //do nothing
+    break;
+    case RIGHT:
+      rotateRel(70, -M_PI/2);
+    break;
+    case BACK:
+      rotateRel(70, M_PI);
+    break;
+    case LEFT:
+      rotateRel(70, M_PI/2);
+    break;
+  }
+  stabledetection(0b00000, true);
+  *dir = flipdir(*dir, turn);
+}
+
+void moveabs(directions *dir, directions absolute){
+  int continuous = (*dir) | (*dir>>4);
+  if ( continuous & (absolute>>0) ){
+    moverel(dir, FRONT);
+  }else if( continuous & (absolute>>1) ){
+    moverel(dir, RIGHT);
+  }else if( continuous & (absolute>>2) ){
+    moverel(dir, BACK);
+  }else if( continuous & (absolute>>3) ){
+    moverel(dir, LEFT);
   }
 }
 
