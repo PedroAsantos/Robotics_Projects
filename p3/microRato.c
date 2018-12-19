@@ -13,10 +13,11 @@ typedef enum { MOVING, EXPECTINGCOMMAND, CENTERING } movementstate;
 typedef enum { FRONT = 0, LEFT = 1, BACK = 2, RIGHT = 3} relative;
 const double d = 125; //grid distance in [mm]
 const double robotRadius = 100;
-const int    forwardSpeed = 45;
+const int    forwardSpeed = 35;
 const int    slowTurn     =  4;
 const int    fastTurn     = 10;
-double x, y, t, dx, dy;
+double x, y, t;
+bool switcher;
 
 void    rotateRel(int maxVel, double deltaAngle);
 void    motorCommand(int comR, int comL);
@@ -33,8 +34,8 @@ int     sgn(double v);
 int main(void)
 {
     initPIC32();
-    configBTUart(3, 115200); // Configure Bluetooth UART
-    bt_on();   // enable bluetooth; printf is now redirected to bluetooth UART
+    //configBTUart(3, 115200); // Configure Bluetooth UART
+    //bt_on();   // enable bluetooth; printf is now redirected to bluetooth UART
     closedLoopControl( true );
     setVel2(0, 0);
     printf("MicroRato, robot %d\n\n\n", ROBOT);
@@ -55,11 +56,14 @@ int main(void)
         int     groundLR           = 0b00000;   //trigger left/right sensor
         int     comL               = 0;         //left motor command
         int     comR               = 0;         //right motor command
-        double  beaconX            = 0.0;       //beacon coords
-        double  beaconY            = 0.0;
         double  distToBeacon       = 0.0;
         bool    updateAvailable    = true;      //true when new node discovered
-        groundSensor = stabledetection(groundSensor, true);
+
+        enableObstSens();
+        groundStable = stabledetection(groundSensor, true);  //dump buffer
+        setRobotPos(0.0, 0.0, 0.0);
+        led(0,0);
+        led(1,0);
 
         do
         {
@@ -67,37 +71,23 @@ int main(void)
             readAnalogSensors();				  // Fill in "analogSensors" structure
             groundSensor = readLineSensors(0);	// Read ground sensor
             getRobotPos(&x, &y, &t);      //get robot position
-            dx = x - beaconX;             //distance to beacon
-            dy = y - beaconY;
             groundStable = stabledetection(groundSensor, false);
 
             switch (movstate){
               case MOVING:
-                if (fmax( abs(dx), abs(dy) ) >= d+10.0){//straight node detected
+                if ( x  >= d+10.0){//straight node detected
                   updateAvailable = true;
                   paths = dir | flipdir(dir, BACK);     //update available paths
                   nextNode(node, dir);
-                  beaconX = x;              //set beacon to current position
-                  beaconY = y;
-                  if(abs(dx) > abs(dy)){    //correct offset of 10 mm
-                    beaconX -= 10*sgn(dx);
-                  }else{
-                    beaconY -= 10*sgn(dy);
-                  }
+                  setRobotPos(10.0, 0.0, 0.0);   //set beacon to current position
                 }
                 if ( (groundStable == 0) &&             //dead end detected
-                    (fmax( abs(dx), abs(dy) ) >= d - robotRadius) ){
+                    ( x  >= d - robotRadius) ){
                   updateAvailable = true;
                   paths = flipdir(dir, BACK);           //only path leads back
                   nextNode(node, dir);                  //update node and beacon
-                  beaconX = x;
-                  beaconY = y;
-                  if(abs(dx) > abs(dy)){                //correct offset
-                    beaconX += (robotRadius - 10.0)*sgn(dx);
-                  }else{
-                    beaconY += (robotRadius - 10.0)*sgn(dy);
-                  }
                   moverel(&dir, BACK);                  //turn back
+                  setRobotPos(-10.0 + robotRadius, 0.0, 0.0);
                   break;
                 }
                 if (groundStable & 0b10001){            //intersection detected
@@ -106,8 +96,9 @@ int main(void)
                   groundLR = 0;
                   comL     = 0;
                   comR     = 0;
-                  beaconX  = x;
-                  beaconY  = y;
+                  switcher = true;
+                  distToBeacon = 0;
+                  setRobotPos(0.0, 0.0, 0.0);
                   break;
                 }
                 //lookup table for closed-loop line following behavior:
@@ -143,21 +134,21 @@ int main(void)
                 comL         = forwardSpeed/2;
                 comR         = forwardSpeed/2;
                 groundLR     = groundLR | (groundStable & 0b10001);
-                distToBeacon = 0;
-                if ((groundStable & 0b10001) == 0){
+                if ( ((groundStable & 0b10001) == 0) && switcher ){
                   // distance the robot travelled while measuring black
-                  distToBeacon = fmax( abs(dx), abs(dy) );
+                  distToBeacon = x;
+                  switcher = false;
                 }
-
-                if (fmax( abs(dx), abs(dy) ) >= robotRadius - 25.0){  //centered
+                if ( x >= robotRadius - 25.0){  //centered
                   comL    = 0;
                   comR    = 0;
-                  beaconX = x;
-                  beaconY = y;
+                  setRobotPos(0.0, 0.0, 0.0);
                   updateAvailable = true;
                   nextNode(node, dir);
-                  if( (distToBeacon >= 40) || (groundStable & 0b10001) ){
+                  if( (distToBeacon >= 35.0) || (groundStable & 0b10001) ){
                     paths = 0b10000 | flipdir(dir, BACK); //finish line detected
+                    led(0,1);
+                    led(1,1);
                     movstate = EXPECTINGCOMMAND;
                     break;
                   }else{
@@ -176,11 +167,16 @@ int main(void)
                     movstate = MOVING;            //no intersection, just turn
                     if ( paths & flipdir(dir, LEFT) ){
                       moverel(&dir, LEFT);        //left turn only option
+                      setRobotPos(0.0, 0.0, 0.0);
+                      printf("left turn detected\n");
                     }else if ( paths & flipdir(dir, RIGHT) ){
                       moverel(&dir, RIGHT);       //right turn only option
+                      setRobotPos(0.0, 0.0, 0.0);
+                      printf("right turn detected\n");
                     }
                   }else{
                     movstate = EXPECTINGCOMMAND;  //intersection
+                    printf("intersection detected\n");
                   }
                 }
               break;
@@ -190,9 +186,18 @@ int main(void)
                 comR = 0;
               break;
             }
-            motorCommand(comR, comL);   //execute motor command
+            motorCommand(comR, comL);   //execute motor command with buffer
+            //setVel2(comL, comR);      //motor without buffer
             //debug message:
-            printf("Dir %d; state: %d; dist: %.0f; %.0f; node: %d; %d; grSt: %d; update: %d\n", dir, movstate, dx, dy, node[0], node[1], groundStable, updateAvailable);
+            printf("Dir %d; state: %d; dist: %.0f; node: %d; %d; update: %d;", dir, movstate, x, node[0], node[1], updateAvailable);
+            printf(" ground: ");
+            printInt(groundSensor, 2 | 5 << 16);
+            printf("; grStable: ");
+            printInt(groundStable, 2 | 5 << 16);
+            printf("; paths: ");
+            printInt(paths, 2 | 5 << 16);
+            printf("\n");
+
             if(updateAvailable){
               updateMap(node, paths);
               updateAvailable = false;
@@ -202,14 +207,18 @@ int main(void)
                 switch (state) {
                   case EXPLORINGMAP:
                     //algorithm for exploring north (stupid and simple - delete later)
-                    if(paths & 0b010000){
+                    if(paths & 0b01000){
                       moveabs(&dir, NORTH);
-                    }else if(paths & 0b001000){
+                      printf("north\n");
+                    }else if(paths & 0b00100){
                       moveabs(&dir, EAST);
-                    }else if(paths & 0b010000){
+                      printf("east\n");
+                    }else if(paths & 0b0010){
                       moveabs(&dir, SOUTH);
+                      printf("south\n");
                     }else{
                       moveabs(&dir, WEST);
+                      printf("west\n");
                     }
                   break;
                   case FINDINGBESTPATH:
@@ -222,6 +231,7 @@ int main(void)
 
                   break;
                 }
+                movstate = MOVING;
             }
 
 
@@ -256,15 +266,15 @@ int sgn(double v){
 }
 
 int stabledetection(int groundSensor, bool dump){
-  const  int l = 5;
-  static int sensorBuffer[5] = {0};
+  const  int l = 3;
+  static int sensorBuffer[3] = {4, 4, 4};
   static int state = 0b00100;
   int i, j, curState;
   bool trigger;
 
   for( i = 0; i < l-1; i++){                //update ground sensor buffer
     if (dump){
-      sensorBuffer[i] = 0;
+      sensorBuffer[i] = 0b00100;
     }else{
       sensorBuffer[i] = sensorBuffer[i+1];
     }
@@ -273,24 +283,24 @@ int stabledetection(int groundSensor, bool dump){
   if (dump){
     state = 0b00100;                        //reset state after dump
   }
-  for (i = 0; i < l; i++){                  //check for stable signal
+  for (i = 0; i < 5; i++){                  //check for stable signal
     curState = (state >> i) & 0b00001;
     trigger = true;
     for (j = 0; j < l; j++) {
-      if ( (sensorBuffer[j] >> i) & (0b00001 == curState) ){
+      if ( ( (sensorBuffer[j] >> i) & 0b00001 ) == curState ){
         trigger = false;      //all buffer bits have to differ from state bit
       }
-      if (trigger){
-        state ^= (0b00001 << i);            //toggle sensor bit
-      }
+    }
+    if (trigger){
+      state ^= (0b00001 << i);            //toggle sensor bit
     }
   }
   return state;
 }
 
 void motorCommand(int comR, int comL){
-  const  int len = 6;
-  static int motorBuffer[2][6] = {{0}};
+  const  int len = 3;
+  static int motorBuffer[2][3] = {{0}};
   int l, r, i;
 
   for( i = 0; i < len-1; i++){              //update motor buffer
@@ -298,14 +308,14 @@ void motorCommand(int comR, int comL){
       motorBuffer[1][i] = motorBuffer[1][i+1];
   }
   motorBuffer[0][len-1] = comR;
-  motorBuffer[0][len-1] = comL;
+  motorBuffer[1][len-1] = comL;
   l = 0;
   r = 0;
   for( i = 0; i < len-1; i++ ){             //calculate mean values of buffer
       r += motorBuffer[0][i]/len;
       l += motorBuffer[1][i]/len;
   }
-  setVel2(r, l);                            //apply commands to motor
+  setVel2(l, r);                            //apply commands to motor
 }
 
 void nextNode(int *node, directions dir){
@@ -367,17 +377,18 @@ void moverel(directions *dir, relative turn){
   }
   stabledetection(0b00000, true);   //dump sensor buffer to avoid artifacts
   *dir = flipdir(*dir, turn);
+  setRobotPos(0.0, 0.0, 0.0);
 }
 
 void moveabs(directions *dir, directions absolute){
-  int continuous = (*dir) | (*dir>>4);
-  if      ( continuous & (absolute>>0) ){
+  int continuous = (*dir) | (*dir<<4);
+  if      ( continuous & (absolute<<0) ){
     moverel(dir, FRONT);
-  }else if( continuous & (absolute>>1) ){
+  }else if( continuous & (absolute<<1) ){
     moverel(dir, RIGHT);
-  }else if( continuous & (absolute>>2) ){
+  }else if( continuous & (absolute<<2) ){
     moverel(dir, BACK);
-  }else if( continuous & (absolute>>3) ){
+  }else if( continuous & (absolute<<3) ){
     moverel(dir, LEFT);
   }
 }
@@ -387,8 +398,8 @@ void rotateRel(int maxVel, double deltaAngle){
     double targetAngle;
     double error;
     double integral = 0;
-    double KP_ROT = 50;
-    double KI_ROT	= 0;
+    double KP_ROT = 30;
+    double KI_ROT	= 6;
     int cmdVel;
 
     getRobotPos(&x, &y, &t);
