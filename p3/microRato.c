@@ -7,6 +7,15 @@
 #include <stdlib.h>
 // TODO: draw state machine, measure robot radius
 
+
+
+struct nodeMap
+{
+    int coor_x;
+    int coor_y;
+    int paths[4];
+};
+
 typedef enum { EXPLORINGMAP, FINDINGBESTPATH, GOINGTOTOKEN, GOINGTOBASE } states;
 typedef enum { NORTH = 8, EAST = 4, SOUTH = 2, WEST = 1} directions;
 typedef enum { MOVING, EXPECTINGCOMMAND, CENTERING } movementstate;
@@ -19,17 +28,33 @@ const int    fastTurn     = 10;
 double x, y, t;
 bool switcher;
 
+
+
+
+
+const int INITIAL_SIZE_X_MAP = 37;
+const int INITIAL_SIZE_Y_MAP = 37;
+int SIZE_X_MAP = 37;
+int SIZE_Y_MAP = 37;
+// why error using struct  nodeMap map[INITIAL_SIZE_Y_MAP][INITIAL_SIZE_X_MAP];
+struct  nodeMap map[37][37];
+int baseNodeIndex[2] = {18,18};
 void    rotateRel(int maxVel, double deltaAngle);
 void    motorCommand(int comR, int comL);
 int     stabledetection(int groundSensor, bool dump);
 int     flipdir( directions dir, relative turn);
 void    nextNode(int *node, directions dir);
+void    updateMapPaths(int *node, int paths);
 void    updateMap(int *node, int paths);
 int     sumofbits(int number);
 void    moverel(directions *dir, relative turn);
 void    moveabs(directions *dir, directions absolute);
 double  fmax(double v1, double v2);
 int     sgn(double v);
+
+void initializeMap();
+void getNodeMapIndex(int* currentNodeCoord, int* index);
+void updateMapSize(int* currentNodeCoord);
 
 int main(void)
 {
@@ -39,6 +64,73 @@ int main(void)
     closedLoopControl( true );
     setVel2(0, 0);
     printf("MicroRato, robot %d\n\n\n", ROBOT);
+    initializeMap();
+
+    //printing map
+    int i,j,c;
+    for(i=0;i<37;i++){
+      for(j=0;j<37;j++){
+          printf("(%d,", map[i][j].coor_x);
+          printf("%d,", map[i][j].coor_y);
+          for(c=0;c<4;c++){
+            printf("%d,", map[i][j].paths[c]);
+          }
+          printf(")");
+          //
+      }
+      printf("\n");
+    }
+
+    int nodeTemp[2];
+    nodeTemp[0]= 0;
+    nodeTemp[1]=0;
+    int pathTemp = 0b1000;
+    updateMap(nodeTemp,pathTemp);
+    nodeTemp[0]= -1;
+    nodeTemp[1]= 0;
+    pathTemp = 0b0110;
+    updateMap(nodeTemp,pathTemp);
+    nodeTemp[0]= -2;
+    nodeTemp[1]= 0;
+    pathTemp = 0b1011;
+    updateMap(nodeTemp,pathTemp);
+  /*  nodeTemp[0]= 1;
+    nodeTemp[1]= 0;
+    pathTemp = 0b1000;
+    updateMap(nodeTemp,pathTemp);
+    nodeTemp[0]= 1;
+    nodeTemp[1]= -1;
+    pathTemp = 0b1000;
+    updateMap(nodeTemp,pathTemp);
+    nodeTemp[0]= 0;
+    nodeTemp[1]= -1;
+    pathTemp = 0b1000;
+    updateMap(nodeTemp,pathTemp);
+    nodeTemp[0]= -1;
+    nodeTemp[1]= -1;
+    pathTemp = 0b1000;
+    updateMap(nodeTemp,pathTemp);*/
+    //printing map
+    printf("#################################################################\n");
+    for(i=0;i<SIZE_Y_MAP;i++){
+      for(j=0;j<SIZE_X_MAP;j++){
+          printf("(%d,", map[i][j].coor_x);
+          printf("%d,", map[i][j].coor_y);
+          for(c=0;c<4;c++){
+            printf("%d,", map[i][j].paths[c]);
+          }
+          printf(")");
+          //
+      }
+      printf("\n");
+    }
+
+/*  => code to test getNodeMapIndex
+    int currentNodeTest[2] = {-5,-2};
+    int* test = getNodeMapIndex(currentNodeTest);
+    printf("indexX = %d ",test[0]);
+    printf("indexY = %d ",test[1]);
+    printf("coord = %d,%d", map[test[0]][test[1]].coor_x,map[test[0]][test[1]].coor_y);*/
 
     while(1)
     {
@@ -199,7 +291,7 @@ int main(void)
             printf("\n");
 
             if(updateAvailable){
-              updateMap(node, paths);
+              updateMapPaths(node, paths);
               updateAvailable = false;
             }
 
@@ -242,9 +334,176 @@ int main(void)
     return 0;
 }
 
+void copyArrayInt(int* array_source,int* array_dest ,int size){
+    int i;
+    for(i=0;i<size;i++){
+      array_dest[i]=array_source[i];
+    }
+
+}
+
+directions getDirectionToExploreMap(int* currentNode, directions currentDirection){
+  int nodeIndex[2] = {0};
+  getNodeMapIndex(currentNode,nodeIndex );
+  int neighbourdNode[2];
+  copyArrayInt(currentNode,neighbourdNode,sizeof(currentNode)/sizeof(currentNode[0]));
+  int neighbourIndex[2] = {0};
+
+  int c;
+  for(c=0;c<4;c++){
+    if(map[nodeIndex[0]][nodeIndex[1]].paths[c]==1){
+        if(c==0){
+            neighbourdNode[1]=neighbourdNode[1]+1;
+        }else if(c==1){
+          neighbourdNode[0]=neighbourdNode[0]+1;
+        }else if(c==2){
+          neighbourdNode[1]=neighbourdNode[1]-1;
+        }else if(c==3){
+          neighbourdNode[0]=neighbourdNode[0]-1;
+        }
+
+        //neighbourIndex =
+        getNodeMapIndex(neighbourdNode,neighbourIndex);
+        int cc;
+        for(cc=0;cc<4;cc++){
+          if(map[neighbourIndex[0]][neighbourIndex[1]].paths[c]==-1){
+            if(c==0){
+              return NORTH;
+            }else if(c==1){
+              return EAST;
+            }else if(c==2){
+              return SOUTH;
+            }else if(c==3){
+              return WEST;
+            }
+          }
+        }
+
+    }
+  }
+
+
+// necessary to create code to go to the nearest unbknown node
+
+}
+
+
+
+
+void initializeMap(){
+  int i, j, c;
+  const int PATHS_SIZE= 4;
+  for(i=0; i<INITIAL_SIZE_Y_MAP; i++) {
+      for(j=0;j<INITIAL_SIZE_X_MAP;j++) {
+        map[i][j].coor_x = j-INITIAL_SIZE_X_MAP/2;
+        map[i][j].coor_y = INITIAL_SIZE_Y_MAP/2-i;
+        for(c=0;c<PATHS_SIZE;c++){
+            map[i][j].paths[c] = -1;
+        }
+      }
+   }
+}
+
+void getNodeMapIndex(int* currentNodeCoord, int* index){
+  //static int index[2] = {0};
+  index[0] = currentNodeCoord[1]*(-1)+baseNodeIndex[0];
+  index[1] = currentNodeCoord[0]+baseNodeIndex[1];
+//  return index;
+}
 
 void updateMap(int *node, int paths){
+  updateMapPaths(node, paths);
+  updateMapSize(node);
+}
 
+void updateMapPaths(int *node, int paths){
+  int nodeIndex[2] = {0};
+  getNodeMapIndex(node,nodeIndex);
+  int neighbourdNode[2] = {0};
+
+  int c;
+  for(c=0;c<4;c++){
+    map[nodeIndex[0]][nodeIndex[1]].paths[c]=0;
+  }
+
+  int nodeIndexNeighbour[2] = {0};
+
+  //West
+  copyArrayInt(node,neighbourdNode,sizeof(nodeIndex)/sizeof(nodeIndex[0]));
+  neighbourdNode[0]=neighbourdNode[0]-1;
+  getNodeMapIndex(neighbourdNode,nodeIndexNeighbour);
+  if((paths & 0b0001) == 0b0001){
+    map[nodeIndex[0]][nodeIndex[1]].paths[3]=1;
+    map[nodeIndexNeighbour[0]][nodeIndexNeighbour[1]].paths[1]=1;
+  }else{
+    map[nodeIndexNeighbour[0]][nodeIndexNeighbour[1]].paths[1]=0;
+  }
+  //South
+  copyArrayInt(node,neighbourdNode,sizeof(nodeIndex)/sizeof(nodeIndex[0]));
+  neighbourdNode[1]=neighbourdNode[1]-1;
+  getNodeMapIndex(neighbourdNode,nodeIndexNeighbour);
+  if((paths & 0b0010) == 0b0010){
+    map[nodeIndex[0]][nodeIndex[1]].paths[2]=1;
+    map[nodeIndexNeighbour[0]][nodeIndexNeighbour[1]].paths[0]=1;
+  }else{
+    map[nodeIndexNeighbour[0]][nodeIndexNeighbour[1]].paths[0]=0;
+  }
+  //EAST
+  copyArrayInt(node,neighbourdNode,sizeof(nodeIndex)/sizeof(nodeIndex[0]));
+
+  neighbourdNode[0]=neighbourdNode[0]+1;
+  getNodeMapIndex(neighbourdNode,nodeIndexNeighbour);
+  if((paths & 0b0100) == 0b0100){
+    map[nodeIndex[0]][nodeIndex[1]].paths[1]=1;
+    map[nodeIndexNeighbour[0]][nodeIndexNeighbour[1]].paths[3]=1;
+  }else{
+    map[nodeIndexNeighbour[0]][nodeIndexNeighbour[1]].paths[3]=0;
+  }
+  //north
+  copyArrayInt(node,neighbourdNode,sizeof(nodeIndex)/sizeof(nodeIndex[0]));
+  neighbourdNode[1]=neighbourdNode[1]+1;
+  getNodeMapIndex(neighbourdNode,nodeIndexNeighbour);
+  if((paths & 0b1000) == 0b1000){
+    map[nodeIndex[0]][nodeIndex[1]].paths[0]=1;
+    map[nodeIndexNeighbour[0]][nodeIndexNeighbour[1]].paths[2]=1;
+  }else{
+    map[nodeIndexNeighbour[0]][nodeIndexNeighbour[1]].paths[2]=0;
+  }
+
+}
+
+void updateMapSize(int* currentNodeCoord){
+    if(currentNodeCoord[0]>0){
+      if(INITIAL_SIZE_X_MAP/2 + map[0][0].coor_x < currentNodeCoord[0]){
+        SIZE_X_MAP=SIZE_X_MAP-1;
+        int j,i;
+        for(i=0;i<SIZE_Y_MAP;i++){
+          for(j=0;j<SIZE_X_MAP;j++){
+            map[i][j] = map[i][j+1];
+          }
+        }
+      }
+    }else{
+      if(INITIAL_SIZE_X_MAP/2 - map[0][SIZE_X_MAP-1].coor_x < -1*currentNodeCoord[0]){
+        SIZE_X_MAP=SIZE_X_MAP-1;
+      }
+    }
+
+    if(currentNodeCoord[1]>0){
+      if(INITIAL_SIZE_Y_MAP/2 + map[SIZE_Y_MAP-1][0].coor_y < currentNodeCoord[1]){
+        SIZE_Y_MAP=SIZE_Y_MAP-1;
+      }
+    }else{
+      if(INITIAL_SIZE_Y_MAP/2 - map[0][0].coor_y < -1*currentNodeCoord[1]){
+        SIZE_Y_MAP=SIZE_Y_MAP-1;
+        int j,i;
+        for(i=0;i<SIZE_Y_MAP;i++){
+          for(j=0;j<SIZE_X_MAP;j++){
+            map[i][j] = map[i+1][j];
+          }
+        }
+      }
+    }
 }
 
 double fmax(double v1, double v2){
