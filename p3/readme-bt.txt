@@ -30,9 +30,10 @@ Instructions to use bluetooth communications in the DETI Robot
       Press CTRL-C for hangup
 
  4.2) Open another terminal and type:
-      
+      cp /opt/pi32mx/bin/pterm .
+      sudo ./pterm -p /dev/rfcomm0
+        or
       pterm -p /dev/rfcomm0
 
 (any problem should be reported to jla@ua.pt)
 ***************************************************************************
-

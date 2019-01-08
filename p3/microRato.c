@@ -5,16 +5,12 @@
 #include <math.h>
 #include <string.h>
 #include <stdlib.h>
+#include "array.c"
 // TODO: draw state machine, measure robot radius
 
 
 
-struct nodeMap
-{
-    int coor_x;
-    int coor_y;
-    int paths[4];
-};
+
 
 typedef enum { EXPLORINGMAP, FINDINGBESTPATH, GOINGTOTOKEN, GOINGTOBASE } states;
 typedef enum { NORTH = 8, EAST = 4, SOUTH = 2, WEST = 1} directions;
@@ -37,7 +33,7 @@ const int INITIAL_SIZE_Y_MAP = 37;
 int SIZE_X_MAP = 37;
 int SIZE_Y_MAP = 37;
 // why error using struct  nodeMap map[INITIAL_SIZE_Y_MAP][INITIAL_SIZE_X_MAP];
-struct  nodeMap map[37][37];
+Node map[37][37];
 int baseNodeIndex[2] = {18,18};
 void    rotateRel(int maxVel, double deltaAngle);
 void    motorCommand(int comR, int comL);
@@ -55,12 +51,16 @@ int     sgn(double v);
 void initializeMap();
 void getNodeMapIndex(int* currentNodeCoord, int* index);
 void updateMapSize(int* currentNodeCoord);
+directions getDirectionToExploreMap(int* currentNode, directions currentDirection);
+void performAStar(int* initialNodeCoord, int* finalNodeCoord);
+int GetManhattanDistance(Node nodeA, int* nodeBCoord);
+void printPath(Node *head);
 
 int main(void)
 {
     initPIC32();
-    //configBTUart(3, 115200); // Configure Bluetooth UART
-    //bt_on();   // enable bluetooth; printf is now redirected to bluetooth UART
+//    configBTUart(3, 115200); // Configure Bluetooth UART
+//    bt_on();   // enable bluetooth; printf is now redirected to bluetooth UART
     closedLoopControl( true );
     setVel2(0, 0);
     printf("MicroRato, robot %d\n\n\n", ROBOT);
@@ -81,19 +81,24 @@ int main(void)
       printf("\n");
     }
 
-    int nodeTemp[2];
-    nodeTemp[0]= 0;
-    nodeTemp[1]=0;
+    int nodeTempInitial[2];
+    nodeTempInitial[0]= 0;
+    nodeTempInitial[1]=0;
     int pathTemp = 0b1000;
-    updateMap(nodeTemp,pathTemp);
-    nodeTemp[0]= -1;
+    updateMap(nodeTempInitial,pathTemp);
+    int nodeTemp[2];
+    nodeTemp[0]= 1;
     nodeTemp[1]= 0;
-    pathTemp = 0b0110;
+    pathTemp = 0b1010;
     updateMap(nodeTemp,pathTemp);
-    nodeTemp[0]= -2;
+    nodeTemp[0]= 2;
     nodeTemp[1]= 0;
     pathTemp = 0b1011;
     updateMap(nodeTemp,pathTemp);
+    performAStar(nodeTemp,nodeTempInitial);
+
+
+
   /*  nodeTemp[0]= 1;
     nodeTemp[1]= 0;
     pathTemp = 0b1000;
@@ -159,6 +164,7 @@ int main(void)
 
         do
         {
+            printf(".");
             waitTick40ms();						    // Wait for next 40ms tick
             readAnalogSensors();				  // Fill in "analogSensors" structure
             groundSensor = readLineSensors(0);	// Read ground sensor
@@ -291,7 +297,7 @@ int main(void)
             printf("\n");
 
             if(updateAvailable){
-              updateMapPaths(node, paths);
+              updateMap(node, paths);
               updateAvailable = false;
             }
 
@@ -299,7 +305,11 @@ int main(void)
                 switch (state) {
                   case EXPLORINGMAP:
                     //algorithm for exploring north (stupid and simple - delete later)
-                    if(paths & 0b01000){
+                    //directions dira = getDirectionToExploreMap(node,NORTH);
+                    printf("EXPLORING MAP\n");
+                    printf("####################### %d\n",getDirectionToExploreMap(node,NORTH));
+                    moveabs(&dir,getDirectionToExploreMap(node,NORTH));
+                  /*  if(paths & 0b01000){
                       moveabs(&dir, NORTH);
                       printf("north\n");
                     }else if(paths & 0b00100){
@@ -311,7 +321,7 @@ int main(void)
                     }else{
                       moveabs(&dir, WEST);
                       printf("west\n");
-                    }
+                    }*/
                   break;
                   case FINDINGBESTPATH:
 
@@ -328,6 +338,19 @@ int main(void)
 
 
         } while(!stopButton());
+        printf("###########################MAP######################################\n");
+        for(i=0;i<SIZE_Y_MAP;i++){
+          for(j=0;j<SIZE_X_MAP;j++){
+              printf("(%d,", map[i][j].coor_x);
+              printf("%d,", map[i][j].coor_y);
+              for(c=0;c<4;c++){
+                printf("%d,", map[i][j].paths[c]);
+              }
+              printf(")");
+              //
+          }
+          printf("\n");
+        }
         disableObstSens();
         setVel2(0, 0);
     }
@@ -342,31 +365,33 @@ void copyArrayInt(int* array_source,int* array_dest ,int size){
 
 }
 
+
+
 directions getDirectionToExploreMap(int* currentNode, directions currentDirection){
   int nodeIndex[2] = {0};
-  getNodeMapIndex(currentNode,nodeIndex );
-  int neighbourdNode[2];
-  copyArrayInt(currentNode,neighbourdNode,sizeof(currentNode)/sizeof(currentNode[0]));
+  getNodeMapIndex(currentNode,nodeIndex);
+  int neighbourdNode[2] = {0};
   int neighbourIndex[2] = {0};
 
   int c;
   for(c=0;c<4;c++){
     if(map[nodeIndex[0]][nodeIndex[1]].paths[c]==1){
+        copyArrayInt(currentNode,neighbourdNode,sizeof(neighbourdNode)/sizeof(neighbourdNode[0]));
         if(c==0){
-            neighbourdNode[1]=neighbourdNode[1]+1;
+            neighbourdNode[0]=neighbourdNode[0]+1;
         }else if(c==1){
-          neighbourdNode[0]=neighbourdNode[0]+1;
-        }else if(c==2){
           neighbourdNode[1]=neighbourdNode[1]-1;
-        }else if(c==3){
+        }else if(c==2){
           neighbourdNode[0]=neighbourdNode[0]-1;
+        }else if(c==3){
+          neighbourdNode[1]=neighbourdNode[1]+1;
         }
 
         //neighbourIndex =
         getNodeMapIndex(neighbourdNode,neighbourIndex);
         int cc;
         for(cc=0;cc<4;cc++){
-          if(map[neighbourIndex[0]][neighbourIndex[1]].paths[c]==-1){
+          if(map[neighbourIndex[0]][neighbourIndex[1]].paths[cc]==-1){
             if(c==0){
               return NORTH;
             }else if(c==1){
@@ -378,12 +403,11 @@ directions getDirectionToExploreMap(int* currentNode, directions currentDirectio
             }
           }
         }
-
     }
   }
 
-
 // necessary to create code to go to the nearest unbknown node
+//usar lista de memoria e depois fazer a* para o node da lista mais recente desconhecido
 
 }
 
@@ -397,6 +421,8 @@ void initializeMap(){
       for(j=0;j<INITIAL_SIZE_X_MAP;j++) {
         map[i][j].coor_x = j-INITIAL_SIZE_X_MAP/2;
         map[i][j].coor_y = INITIAL_SIZE_Y_MAP/2-i;
+        map[i][j].gCost = 0 ;
+        map[i][j].hCost = 0;
         for(c=0;c<PATHS_SIZE;c++){
             map[i][j].paths[c] = -1;
         }
@@ -416,6 +442,163 @@ void updateMap(int *node, int paths){
   updateMapSize(node);
 }
 
+int getFcostOfNode(Node node){
+  return node.gCost + node.hCost;
+}
+
+
+void getKnownNeighborsToArray(Array *a, Node node){
+  int neighbourdNode[2] = {0};
+  int nodeCoord[] = {node.coor_x, node.coor_y};
+  int neighbourIndex[2] = {0};
+
+  bool knownNeighbours=false;
+  int c;
+  for(c=0;c<4;c++){
+      if(node.paths[c]==1){
+        copyArrayInt(nodeCoord,neighbourdNode,sizeof(neighbourIndex)/sizeof(neighbourIndex [0]));
+        if(c==0){
+            neighbourdNode[0]=node.coor_x+1;
+        }else if(c==1){
+          neighbourdNode[1]=node.coor_y-1;
+        }else if(c==2){
+          neighbourdNode[0]=node.coor_x-1;
+        }else if(c==3){
+          neighbourdNode[1]=node.coor_y+1;
+        }
+
+        getNodeMapIndex(neighbourdNode,neighbourIndex);
+        int cc;
+        Node neighbour = map[neighbourIndex[0]][neighbourIndex[1]];
+        knownNeighbours=true;
+        for(cc=0;cc<4;cc++){
+          if(neighbour.paths[cc]== -1){
+             knownNeighbours = false;
+             break;
+          }
+        }
+        if(knownNeighbours){
+          insertArray(a, neighbour);
+        }
+
+      }
+  }
+}
+
+int GetManhattanDistance(Node nodeA, int* nodeBCoord){
+  return abs(nodeA.coor_x-nodeBCoord[0])+abs(nodeA.coor_y-nodeBCoord[1]);
+}
+
+
+void performAStar(int* initialNodeCoord, int* finalNodeCoord){
+  printf("performAStar\n");
+  int indexInicialNodeCoord[2] = {0};
+  int indexFinalNodeCoord[2] = {0};
+
+  getNodeMapIndex(initialNodeCoord,indexInicialNodeCoord);
+  getNodeMapIndex(finalNodeCoord,indexFinalNodeCoord);
+
+  Array openSet;
+  openSet.used = 0;
+  Node nodesOpenSet[(INITIAL_SIZE_X_MAP/2+1) * (INITIAL_SIZE_Y_MAP/2+1)];
+  openSet.array = nodesOpenSet;
+
+  Array closedSet;
+  Node nodesClosedSet[(INITIAL_SIZE_X_MAP/2+1) * (INITIAL_SIZE_Y_MAP/2+1)];
+  closedSet.used = 0;
+  closedSet.array = nodesClosedSet;
+
+  Array parentsSet;
+  Node nodesParents[(INITIAL_SIZE_X_MAP/2+1) * (INITIAL_SIZE_Y_MAP/2+1)];
+  parentsSet.used = 0;
+  parentsSet.array = nodesParents;
+
+
+
+
+  insertArray(&openSet, map[indexInicialNodeCoord[0]][indexInicialNodeCoord[1]]);
+
+  printf("%d, %d\n", openSet.array[0].coor_x, openSet.array[0].coor_y );
+  while(openSet.used>0){
+    printf("WHILE BEGIN\n");
+    Node currentNode = openSet.array[0];
+    printf("current node: %d,%d", currentNode.coor_x, currentNode.coor_y);
+    int i;
+    int fCostCurrentNode = getFcostOfNode(currentNode);
+    printf("f cost current Node: %d\n"+ fCostCurrentNode);
+    for(i=0;i<openSet.used;i++){
+      if(getFcostOfNode(openSet.array[i]) < fCostCurrentNode || (getFcostOfNode(openSet.array[i]) == fCostCurrentNode && openSet.array[i].hCost < currentNode.hCost )){
+        currentNode = openSet.array[i];
+        fCostCurrentNode = getFcostOfNode(currentNode);
+      }
+    }
+
+    removeElementFromArray(&openSet,currentNode);
+    insertArray(&closedSet, currentNode);
+
+    if(currentNode.coor_x == finalNodeCoord[0] && currentNode.coor_y == finalNodeCoord[1]){
+      printf("TARGET REACH\n");
+    //  Node *temp =   currentNode.parent;
+    //  printf("%d, %d \n",temp->coor_x,temp->coor_y);
+      printf("%d, %d \n", currentNode.coor_x, currentNode.coor_y );
+      int asd;
+      for(asd=0;asd<parentsSet.used;asd++){
+          printf("%d\n",parentsSet.array[asd]);
+      }
+
+      Node temp;
+      temp = parentsSet.array[currentNode.indexArrayParent];
+      while (temp.indexArrayParent!=0) {
+        printf("%d, %d \n", temp.coor_x, temp.coor_y );
+        temp = parentsSet.array[temp.indexArrayParent];
+      }
+      //printPath(&currentNode);
+
+      return;
+    }
+
+    Array neighboursOfCurrentNode;
+    Node nodesNeighbours[4];
+    neighboursOfCurrentNode.used = 0;
+    neighboursOfCurrentNode.array = nodesNeighbours;
+
+    getKnownNeighborsToArray(&neighboursOfCurrentNode,currentNode);
+
+    int n;
+    for(n=0;n<neighboursOfCurrentNode.used;n++){
+      printf("neigh: %d,%d\n",neighboursOfCurrentNode.array[n].coor_x, neighboursOfCurrentNode.array[n].coor_y);
+      if(!elementIsInArray(&closedSet,neighboursOfCurrentNode.array[n])){
+
+        int newMovementCostToNeigh = currentNode.gCost + 1;
+        if(newMovementCostToNeigh < neighboursOfCurrentNode.array[n].gCost || !elementIsInArray(&openSet,neighboursOfCurrentNode.array[n])){
+          neighboursOfCurrentNode.array[n].gCost = newMovementCostToNeigh;
+          neighboursOfCurrentNode.array[n].hCost = GetManhattanDistance(neighboursOfCurrentNode.array[n],finalNodeCoord);
+          printf("neigh: %d, %d - current : %d, %d\n", neighboursOfCurrentNode.array[n].coor_x, neighboursOfCurrentNode.array[n].coor_y, currentNode.coor_x, currentNode.coor_y);
+
+          insertArray(&parentsSet, currentNode);
+          printf("parentsSet used %d\n",parentsSet.used );
+          neighboursOfCurrentNode.array[n].indexArrayParent = parentsSet.used-1;  //verificar se está bem.
+          printf("neighboursOfCurrentNode.array[n].indexArrayParent: %d\n",neighboursOfCurrentNode.array[n].indexArrayParent);
+          if(!elementIsInArray(&openSet,neighboursOfCurrentNode.array[n])){
+            insertArray(&openSet,neighboursOfCurrentNode.array[n]);
+          }
+
+        }
+      }
+    }
+
+  }
+
+}
+
+void printPath(Node *head) {
+  /*  Node *current_node = head;
+   	while ( current_node != NULL) {
+        printf("%d, %d ", current_node->coor_x, current_node->coor_y );
+        current_node = parentsSet[current_node->indexArrayParent];
+    }*/
+}
+
 void updateMapPaths(int *node, int paths){
   int nodeIndex[2] = {0};
   getNodeMapIndex(node,nodeIndex);
@@ -430,7 +613,7 @@ void updateMapPaths(int *node, int paths){
 
   //West
   copyArrayInt(node,neighbourdNode,sizeof(nodeIndex)/sizeof(nodeIndex[0]));
-  neighbourdNode[0]=neighbourdNode[0]-1;
+  neighbourdNode[1]=neighbourdNode[1]+1;
   getNodeMapIndex(neighbourdNode,nodeIndexNeighbour);
   if((paths & 0b0001) == 0b0001){
     map[nodeIndex[0]][nodeIndex[1]].paths[3]=1;
@@ -440,7 +623,7 @@ void updateMapPaths(int *node, int paths){
   }
   //South
   copyArrayInt(node,neighbourdNode,sizeof(nodeIndex)/sizeof(nodeIndex[0]));
-  neighbourdNode[1]=neighbourdNode[1]-1;
+  neighbourdNode[0]=neighbourdNode[0]-1;
   getNodeMapIndex(neighbourdNode,nodeIndexNeighbour);
   if((paths & 0b0010) == 0b0010){
     map[nodeIndex[0]][nodeIndex[1]].paths[2]=1;
@@ -450,8 +633,7 @@ void updateMapPaths(int *node, int paths){
   }
   //EAST
   copyArrayInt(node,neighbourdNode,sizeof(nodeIndex)/sizeof(nodeIndex[0]));
-
-  neighbourdNode[0]=neighbourdNode[0]+1;
+  neighbourdNode[1]=neighbourdNode[1]-1;
   getNodeMapIndex(neighbourdNode,nodeIndexNeighbour);
   if((paths & 0b0100) == 0b0100){
     map[nodeIndex[0]][nodeIndex[1]].paths[1]=1;
@@ -461,7 +643,7 @@ void updateMapPaths(int *node, int paths){
   }
   //north
   copyArrayInt(node,neighbourdNode,sizeof(nodeIndex)/sizeof(nodeIndex[0]));
-  neighbourdNode[1]=neighbourdNode[1]+1;
+  neighbourdNode[0]=neighbourdNode[0]+1;
   getNodeMapIndex(neighbourdNode,nodeIndexNeighbour);
   if((paths & 0b1000) == 0b1000){
     map[nodeIndex[0]][nodeIndex[1]].paths[0]=1;
@@ -475,6 +657,7 @@ void updateMapPaths(int *node, int paths){
 void updateMapSize(int* currentNodeCoord){
     if(currentNodeCoord[0]>0){
       if(INITIAL_SIZE_X_MAP/2 + map[0][0].coor_x < currentNodeCoord[0]){
+        baseNodeIndex[1] = baseNodeIndex[1] - 1; //not sure
         SIZE_X_MAP=SIZE_X_MAP-1;
         int j,i;
         for(i=0;i<SIZE_Y_MAP;i++){
@@ -495,6 +678,7 @@ void updateMapSize(int* currentNodeCoord){
       }
     }else{
       if(INITIAL_SIZE_Y_MAP/2 - map[0][0].coor_y < -1*currentNodeCoord[1]){
+        baseNodeIndex[0] = baseNodeIndex[0] - 1; //not sure
         SIZE_Y_MAP=SIZE_Y_MAP-1;
         int j,i;
         for(i=0;i<SIZE_Y_MAP;i++){
@@ -504,6 +688,9 @@ void updateMapSize(int* currentNodeCoord){
         }
       }
     }
+
+// update baseNodeIndex
+
 }
 
 double fmax(double v1, double v2){
