@@ -410,6 +410,8 @@ void copyArrayInt(int* array_source,int* array_dest ,int size){
 
 directions followAStart(int* currentNodeCoord){
   printf("followAStar() \n");
+  printf("aStarPath.used = %d\n",aStarPath.used);
+  printf("aStarPath.array[aStarPath.used-1] = (%d, %d)\n", aStarPath.array[aStarPath.used-1]->coor_x,aStarPath.array[aStarPath.used-1]->coor_y);
   Node *nextNode = aStarPath.array[aStarPath.used-1];
   removeElementFromArray(&aStarPath, nextNode);
   if(aStarPath.used==0){
@@ -500,9 +502,12 @@ directions getDirectionToExploreMap(int* currentNodeCoord, directions currentDir
       getNodeMapIndex(unknownNodesHistory.intArray[unknownNodesHistory.used-1],nodeTargetIndex);
       Node *targetNode = &map[nodeTargetIndex[0]][nodeTargetIndex[1]];
       performAStar(currentNode,targetNode);
-      performingAStar = true;
-      return followAStart(currentNodeCoord);
+      if(performingAStar){
+        return followAStart(currentNodeCoord);
+      }
+
     }
+    return ;
   }
 }
 
@@ -701,7 +706,6 @@ void performAStar(Node *initialNode, Node *finalNode){
           neighboursOfCurrentNode.array[n]->hCost = GetManhattanDistance(neighboursOfCurrentNode.array[n],finalNode);
           printf("neigh: %d, %d - current : %d, %d\n", neighboursOfCurrentNode.array[n]->coor_x, neighboursOfCurrentNode.array[n]->coor_y, currentNode->coor_x, currentNode->coor_y);
 
-
           neighboursOfCurrentNode.array[n]->parent = currentNode;  //verificar se está bem.
 
           if(!elementIsInArray(&openSet,neighboursOfCurrentNode.array[n])){
@@ -721,36 +725,34 @@ void saveAStartPath(Node *head) {
    aStarPath.used=0;
 
    Node *current_node = head;
+   Node *previousNode = NULL;
+   int c;
+   int contPath;
+   bool addNextNode=false;
    	while ( current_node != NULL) {
-        printf("(%d, %d) ", current_node->coor_x, current_node->coor_y );
-        current_node = current_node->parent;
-        if( current_node != NULL){
-          insertArray(&aStarPath, current_node);
+
+        if(current_node != NULL){
+          contPath = 0;
+          for(c=0;c<4;c++){
+            printf("%d,",current_node->paths[c]);
+            if(current_node->paths[c]==1){
+              contPath++;
+            }
+          }
+
+          if(contPath>2 && previousNode!=NULL ){
+            insertArray(&aStarPath, previousNode);
+          }
+
+
         }
+        previousNode = current_node;
+        current_node = current_node->parent;
     }
     //cheat to remove last element
-    aStarPath.used--;
+  //  aStarPath.used--;
     //remove from path points without more than one option.
-    int np;
-    int c;
-    int contPath;
-    for(np=0;np<aStarPath.used;np++){
-      contPath=0;
-      printf("node path -> (%d,%d)\n",aStarPath.array[np]->coor_x, aStarPath.array[np]->coor_y);
-      for(c=0;c<4;c++){
-        printf("%d,",aStarPath.array[np]->paths[c]);
-        if(aStarPath.array[np]->paths[c]==1){
-          contPath++;
-        }
-      }
-      printf("\n" );
-      if(contPath<=2){
-        printf("Node of path to remove\n", aStarPath.array[np]);
-        removeElementFromArray(&aStarPath, aStarPath.array[np]);
-      }else{
-        printf("Node of path with several options\n", aStarPath.array[np]);
-      }
-    }
+
     int n;
     for(n=0;n<aStarPath.used;n++){
       printf("(%d, %d) ",aStarPath.array[n]->coor_x, aStarPath.array[n]->coor_y );
@@ -762,9 +764,20 @@ void saveAStartPath(Node *head) {
     printf("path size: %d\n",aStarPath.used);
     if(aStarPath.used==0){
       performingAStar = false;
+    }else{
+      performingAStar = true;
     }
 
+    //clean A Start Nodes
 
+    int i, j;
+    for(i=0; i<INITIAL_SIZE_Y_MAP; i++) {
+        for(j=0;j<INITIAL_SIZE_X_MAP;j++) {
+          map[i][j].ggCost = 0 ;
+          map[i][j].hCost = 0;
+          map[i][j].parent = NULL;
+        }
+     }
 
 
 }

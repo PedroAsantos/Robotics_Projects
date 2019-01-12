@@ -10,7 +10,7 @@ typedef struct nodeMap
     int paths[4];
     int ggCost;
     int hCost;
-    struct Node *parent;
+    struct Node **parent;
 } Node;
 
 
