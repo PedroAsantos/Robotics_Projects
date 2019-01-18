@@ -14,7 +14,7 @@
 
 
 
-typedef enum { EXPLORINGMAP, FINDINGBESTPATH, GOINGTOTOKEN, GOINGTOBASE } states;
+typedef enum { STARTING, EXPLORINGMAP, FINDINGBESTPATH, GOINGTOTOKEN, GOINGTOBASE } states;
 typedef enum { NORTH = 8, EAST = 4, SOUTH = 2, WEST = 1} directions;
 typedef enum { MOVING, EXPECTINGCOMMAND, CENTERING } movementstate;
 typedef enum { FRONT = 0, LEFT = 1, BACK = 2, RIGHT = 3} relative;
@@ -204,7 +204,7 @@ int main(void)
         while(!startButton());
         //Initialize default state
         states        state        = EXPLORINGMAP;
-        states        previousState= EXPLORINGMAP;
+        states        previousState = STARTING;
         movementstate movstate     = MOVING;
         directions    dir          = NORTH;
         int     node [2]           = {0};
@@ -240,6 +240,9 @@ int main(void)
                   paths = dir | flipdir(dir, BACK);     //update available paths
                   nextNode(node, dir);
                   setRobotPos(10.0, 0.0, 0.0);   //set beacon to current position
+                  if(closedNodeMode && previousState==EXPLORINGMAP){
+                    movstate = EXPECTINGCOMMAND;
+                  }
                 }
                 if ( (groundStable == 0) &&             //dead end detected
                     ( x  >= d - robotRadius) ){
@@ -349,16 +352,16 @@ int main(void)
             motorCommand(comR, comL);   //execute motor command with buffer
             //setVel2(comL, comR);      //motor without buffer
             //debug message:
-            printf("Dir %d; state: %d; dist: %.0f; node: %d; %d; update: %d;", dir, movstate, x, node[0], node[1], updateAvailable);
-            printf(" ground: ");
-            printInt(groundSensor, 2 | 5 << 16);
-            printf("; grStable: ");
-            printInt(groundStable, 2 | 5 << 16);
-            printf("; paths: ");
-            printInt(paths, 2 | 5 << 16);
-            printf("\n");
 
             if(updateAvailable){
+              printf("Dir %d; state: %d; dist: %.0f; node: %d; %d;", dir, movstate, x, node[0], node[1]);
+              printf(" ground: ");
+              printInt(groundSensor, 2 | 5 << 16);
+              printf("; grStable: ");
+              printInt(groundStable, 2 | 5 << 16);
+              printf("; paths: ");
+              printInt(paths, 2 | 5 << 16);
+              printf("\n");
               updateMap(node, paths);
               updateAvailable = false;
               //update historyPathNode
@@ -379,6 +382,7 @@ int main(void)
                     printf("Best path available\n");
                     state=GOINGTOBASE;
                   }else{
+                    previousState= EXPLORINGMAP;
                     state=FINDINGBESTPATH;
                   }
                 }else{
@@ -484,6 +488,7 @@ directions getDirectionToFindBestPath(int* currentCoord, bool previousStateFindi
             return followAStar(currentCoord);
         }
       }else{
+
         closedNodeMode=true;
         int neighbourdNode[2] = {0};
         int neighbourIndex[2] = {0};
@@ -530,9 +535,31 @@ directions getDirectionToFindBestPath(int* currentCoord, bool previousStateFindi
      }
    }
  }
+
+ int nodeIndex[2] = {0};
+ getNodeMapIndex(currentCoord, nodeIndex);
+
+ int c;
+ for(c=0;c<4;c++){
+   if(map[nodeIndex[0]][nodeIndex[1]].paths[c]==1){
+     if(c==0){
+       printf("Going NORTH\n");
+       return NORTH;
+     }else if(c==1){
+       printf("Going EAST\n");
+       return EAST;
+     }else if(c==2){
+       printf("Going SOUTH\n");
+       return SOUTH;
+     }else if(c==3){
+       printf("Going WEST\n");
+       return WEST;
+     }
+   }
+ }
   printf("Finding best path return null\n" );
   //hard coded invert of the current dir.
-  return NORTH;
+  return ;
 
 }
 
