@@ -71,6 +71,8 @@ directions getDirectionToFindBestPath(int* currentCoord, bool previousStateFindi
 void cleanAStar();
 void copyArrayInt(int* array_source,int* array_dest ,int size);
 bool checkIfNodeHasUnknownNeighbours(Node *node);
+directions getDirectionToGoToToken(int* currentCoord);
+directions getDirectionToGoToInitialPoint(int* currentCoord, states previousState);
 
 int main(void)
 {
@@ -93,12 +95,12 @@ int main(void)
     int i,j,c;
     for(i=0;i<37;i++){
       for(j=0;j<37;j++){
-          printf("(%d,", map[i][j].coor_x);
-          printf("%d,", map[i][j].coor_y);
+    //      printf("(%d,", map[i][j].coor_x);
+    //      printf("%d,", map[i][j].coor_y);
           for(c=0;c<4;c++){
-            printf("%d,", map[i][j].paths[c]);
+    //        printf("%d,", map[i][j].paths[c]);
           }
-          printf(")");
+    //      printf(")");
           //
       }
       printf("\n");
@@ -180,12 +182,12 @@ int main(void)
     printf("#################################################################\n");
     for(i=0;i<SIZE_Y_MAP;i++){
       for(j=0;j<SIZE_X_MAP;j++){
-          printf("(%d,", map[i][j].coor_x);
-          printf("%d,", map[i][j].coor_y);
+      //    printf("(%d,", map[i][j].coor_x);
+      //    printf("%d,", map[i][j].coor_y);
           for(c=0;c<4;c++){
-            printf("%d,", map[i][j].paths[c]);
+      //      printf("%d,", map[i][j].paths[c]);
           }
-          printf(")");
+      //    printf(")");
           //
       }
       printf("\n");
@@ -415,10 +417,21 @@ int main(void)
               }
               if(state==GOINGTOTOKEN){
                 printf("GOING TO TOKEN\n");
-
+                if(node[0]==cheeseCoord[0] && node[1]==cheeseCoord[1]){
+                  state= GOINGTOBASE;
+                  previousState = GOINGTOTOKEN;
+                }else{
+                  moveabs(&dir,getDirectionToGoToToken(node));
+                }
               }
               if(state==GOINGTOBASE){
                 printf("GOING TO BASE\n");
+                if(node[0]==0 && node[1]==0){
+                  printf("&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&& END &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&\N");
+                }else{
+                  moveabs(&dir,getDirectionToGoToInitialPoint(node,previousState));
+                }
+                previousState = GOINGTOBASE;
               }
                 movstate = MOVING;
             }
@@ -442,6 +455,78 @@ int main(void)
         setVel2(0, 0);
     }
     return 0;
+}
+
+
+directions getDirectionToGoToInitialPoint(int* currentCoord, states previousState){
+  printf("getDirectionToGoToInitialPoint\n" );
+  if(previousState == GOINGTOBASE){
+    if(performingAStar){
+      return followAStar(currentCoord);
+    }else{
+      int nodeIndex[2] = {0};
+      int nodePoinIndex[2] ={0};
+      int initialPoint[2] = {0};
+      getNodeMapIndex(initialPoint,nodePoinIndex);
+      getNodeMapIndex(currentCoord,nodeIndex);
+      Node *currentNode = &map[nodeIndex[0]][nodeIndex[1]];
+      Node *initialNode = &map[nodePoinIndex[0]][nodePoinIndex[1]];
+
+
+      performAStar(currentNode,initialNode,true);
+
+      if(performingAStar){
+          return followAStar(currentCoord);
+      }
+    }
+  }else{
+    int nodeIndex[2] = {0};
+    getNodeMapIndex(currentCoord, nodeIndex);
+
+    int c;
+    for(c=0;c<4;c++){
+      if(map[nodeIndex[0]][nodeIndex[1]].paths[c]==1){
+        if(c==0){
+          printf("Going NORTH\n");
+          return NORTH;
+        }else if(c==1){
+          printf("Going EAST\n");
+          return EAST;
+        }else if(c==2){
+          printf("Going SOUTH\n");
+          return SOUTH;
+        }else if(c==3){
+          printf("Going WEST\n");
+          return WEST;
+        }
+      }
+    }
+     printf("Finding getDirectionToGoToInitialPoint path return null\n" );
+     //hard coded invert of the current dir.
+     return ;
+  }
+}
+
+directions getDirectionToGoToToken(int* currentCoord){
+  printf("getDirectionToGoToToken\n");
+  if(performingAStar){
+    return followAStar(currentCoord);
+  }else{
+    int nodeIndex[2] = {0};
+    int nodeTokenIndex[2] ={0};
+
+    getNodeMapIndex(cheeseCoord,nodeTokenIndex);
+    getNodeMapIndex(currentCoord,nodeIndex);
+    Node *currentNode = &map[nodeIndex[0]][nodeIndex[1]];
+    Node *tokenNode = &map[nodeTokenIndex[0]][nodeTokenIndex[1]];
+
+
+    performAStar(currentNode,tokenNode,true);
+
+    if(performingAStar){
+        return followAStar(currentCoord);
+    }
+  }
 }
 
 directions getDirectionToFindBestPath(int* currentCoord, bool previousStateFinding){
@@ -471,7 +556,7 @@ directions getDirectionToFindBestPath(int* currentCoord, bool previousStateFindi
         int indexOfNode=0;
         for(i=0;i<closedSet.used;i++){
           if(checkIfNodeHasUnknownNeighbours(closedSet.array[i])){
-            printf("Unknown neigh:  %d,%d = %d - %d",closedSet.array[i]->coor_x, closedSet.array[i]->coor_y, closedSet.array[i]->hCost, closedSet.array[i]->ggCost);
+            printf("Unknown neigh:  %d,%d = %d - %d\n",closedSet.array[i]->coor_x, closedSet.array[i]->coor_y, closedSet.array[i]->hCost, closedSet.array[i]->ggCost);
             if(((closedSet.array[i]->hCost + closedSet.array[i]->ggCost) < minFcost) || (((closedSet.array[i]->hCost + closedSet.array[i]->ggCost) == minFcost) & (closedSet.array[i]->ggCost < minggCost)) ){
               minggCost=closedSet.array[i]->hCost;
               minFcost=closedSet.array[i]->hCost + closedSet.array[i]->ggCost;
@@ -572,12 +657,12 @@ bool checkIfBestPathIsAvailable(){
   getNodeMapIndex(cheeseCoord,cheeseNodeIndex);
   Node *nodeCheese = &map[cheeseNodeIndex[0]][cheeseNodeIndex[1]];
   Node *initial = &map[initialNodeIndex[0]][initialNodeIndex[1]];
+  performAStar(nodeCheese,initial,false);
 
   printf("aStarPath.size  = %d,  GetManhattanDistance(initial,nodeCheese) %d\n",aStarPath.size,GetManhattanDistance(initial,nodeCheese));
   if(aStarPath.size == GetManhattanDistance(initial,nodeCheese)){
     return true;
   }else{
-      performAStar(nodeCheese,initial,false);
       int i;
       for(i=0;i<closedSet.used;i++){
         if(checkIfNodeHasUnknownNeighbours(closedSet.array[i])){
@@ -892,26 +977,29 @@ void performAStar(Node *initialNode, Node *finalNode, bool toFollow){
   while(openSet.used>0){
 //    printf("WHILE BEGIN\n");
     Node *currentNode = openSet.array[0];
-//    printf("current node %d: %d,%d\n", currentNode,currentNode->coor_x, currentNode->coor_y);
+
     int fCostCurrentNode = 0;
     fCostCurrentNode = currentNode->ggCost + currentNode->hCost;
+
 //    printf("f cost current Node: %d\n", fCostCurrentNode);
 //    printf("gcost: %d, hcost: %d", currentNode->ggCost, currentNode->hCost);
     int i;
     int fCostArray=0;
     for(i=0;i<openSet.used;i++){
       fCostArray = openSet.array[i]->ggCost + openSet.array[i]->hCost;
+  //    printf("(%d,%d)- F cost: %d\n",openSet.array[i]->coor_x,openSet.array[i]->coor_y , fCostArray);
       if((fCostArray < fCostCurrentNode) || (fCostArray == fCostCurrentNode && openSet.array[i]->hCost < currentNode->hCost )){
         currentNode = openSet.array[i];
-        fCostCurrentNode = openSet.array[i]->ggCost + openSet.array[i]->hCost;
+        fCostCurrentNode = fCostArray;
       }
     }
+    printf("current node : %d,%d,%d\n",currentNode->coor_x, currentNode->coor_y, fCostCurrentNode);
 
     removeElementFromArray(&openSet,currentNode);
     insertArray(&closedSet, currentNode);
 
     if(currentNode->coor_x == finalNode->coor_x && currentNode->coor_y == finalNode->coor_y){
-//      printf("TARGET REACH\n");
+       printf("TARGET REACH\n");
 //      printf("%d, %d \n", currentNode->coor_x, currentNode->coor_y );
       saveAStartPath(currentNode, toFollow);
       return;
@@ -926,14 +1014,13 @@ void performAStar(Node *initialNode, Node *finalNode, bool toFollow){
 
     int n;
     for(n=0;n<neighboursOfCurrentNode.used;n++){
-//      printf("neigh: %d,%d\n",neighboursOfCurrentNode.array[n]->coor_x, neighboursOfCurrentNode.array[n]->coor_y);
+      printf("neigh: %d,%d\n",neighboursOfCurrentNode.array[n]->coor_x, neighboursOfCurrentNode.array[n]->coor_y);
       if(!elementIsInArray(&closedSet,neighboursOfCurrentNode.array[n])){
-
         int newMovementCostToNeigh = currentNode->ggCost + 1;
         if(newMovementCostToNeigh < neighboursOfCurrentNode.array[n]->ggCost || !elementIsInArray(&openSet,neighboursOfCurrentNode.array[n])){
           neighboursOfCurrentNode.array[n]->ggCost = newMovementCostToNeigh;
           neighboursOfCurrentNode.array[n]->hCost = GetManhattanDistance(neighboursOfCurrentNode.array[n],finalNode);
-//          printf("neigh: %d, %d - current : %d, %d\n", neighboursOfCurrentNode.array[n]->coor_x, neighboursOfCurrentNode.array[n]->coor_y, currentNode->coor_x, currentNode->coor_y);
+      //    printf("add neigh : %d, %d \n", neighboursOfCurrentNode.array[n]->coor_x, neighboursOfCurrentNode.array[n]->coor_y);
 
           neighboursOfCurrentNode.array[n]->parent = currentNode;  //verificar se está bem.
 
@@ -975,7 +1062,7 @@ void saveAStartPath(Node *head, bool toFollow) {
             printf(" Added previous Node to A Path \n" );
             insertArray(&aStarPath, previousNode);
           }
-
+          printf("\n");
 
         }
         previousNode = current_node;
