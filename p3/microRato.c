@@ -77,8 +77,8 @@ directions getDirectionToGoToInitialPoint(int* currentCoord, states previousStat
 int main(void)
 {
     initPIC32();
-//    configBTUart(3, 115200); // Configure Bluetooth UART
-//    bt_on();   // enable bluetooth; printf is now redirected to bluetooth UART
+  //  configBTUart(3, 115200); // Configure Bluetooth UART
+  //  bt_on();   // enable bluetooth; printf is now redirected to bluetooth UART
     closedLoopControl( true );
     setVel2(0, 0);
     printf("MicroRato, robot %d\n\n\n", ROBOT);
@@ -242,7 +242,8 @@ int main(void)
                   paths = dir | flipdir(dir, BACK);     //update available paths
                   nextNode(node, dir);
                   setRobotPos(10.0, 0.0, 0.0);   //set beacon to current position
-                  if(closedNodeMode && previousState==EXPLORINGMAP){
+
+                  if(closedNodeMode && (previousState==FINDINGBESTPATH)){
                     movstate = EXPECTINGCOMMAND;
                   }
                 }
@@ -353,7 +354,9 @@ int main(void)
             }
             motorCommand(comR, comL);   //execute motor command with buffer
             //setVel2(comL, comR);      //motor without buffer
-            //debug message:
+            printf(" ground: ");
+            printInt(groundSensor, 2 | 5 << 16);
+            printf("\n");
 
             if(updateAvailable){
               printf("Dir %d; state: %d; dist: %.0f; node: %d; %d;", dir, movstate, x, node[0], node[1]);
@@ -427,7 +430,7 @@ int main(void)
               if(state==GOINGTOBASE){
                 printf("GOING TO BASE\n");
                 if(node[0]==0 && node[1]==0){
-                  printf("&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&& END &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&\N");
+                  printf("&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&& END &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&\n");
                 }else{
                   moveabs(&dir,getDirectionToGoToInitialPoint(node,previousState));
                 }
@@ -501,10 +504,10 @@ directions getDirectionToGoToInitialPoint(int* currentCoord, states previousStat
         }
       }
     }
-     printf("Finding getDirectionToGoToInitialPoint path return null\n" );
-     //hard coded invert of the current dir.
-     return ;
   }
+  printf("Finding getDirectionToGoToInitialPoint path return null\n" );
+  //hard coded invert of the current dir.
+  return -1;
 }
 
 directions getDirectionToGoToToken(int* currentCoord){
@@ -527,6 +530,8 @@ directions getDirectionToGoToToken(int* currentCoord){
         return followAStar(currentCoord);
     }
   }
+  printf("Direction to token not found\n");
+  return -1;
 }
 
 directions getDirectionToFindBestPath(int* currentCoord, bool previousStateFinding){
@@ -546,8 +551,8 @@ directions getDirectionToFindBestPath(int* currentCoord, bool previousStateFindi
         int cheeseNodeIndex[2] = {0};
         getNodeMapIndex(initialNodeCoord,initialNodeIndex);
         getNodeMapIndex(cheeseCoord,cheeseNodeIndex);
-        Node *nodeCheese = &map[cheeseNodeIndex[0]][cheeseNodeIndex[1]];
-        Node *initial = &map[initialNodeIndex[0]][initialNodeIndex[1]];
+        // Node *nodeCheese = &map[cheeseNodeIndex[0]][cheeseNodeIndex[1]];
+        // Node *initial = &map[initialNodeIndex[0]][initialNodeIndex[1]];
 
         //performAStar(nodeCheese,initial,false);
         int i;
@@ -644,7 +649,7 @@ directions getDirectionToFindBestPath(int* currentCoord, bool previousStateFindi
  }
   printf("Finding best path return null\n" );
   //hard coded invert of the current dir.
-  return ;
+  return -1;
 
 }
 
@@ -659,7 +664,7 @@ bool checkIfBestPathIsAvailable(){
   Node *initial = &map[initialNodeIndex[0]][initialNodeIndex[1]];
   performAStar(nodeCheese,initial,false);
 
-  printf("aStarPath.size  = %d,  GetManhattanDistance(initial,nodeCheese) %d\n",aStarPath.size,GetManhattanDistance(initial,nodeCheese));
+  printf("aStarPath.size  = %d,  GetManhattanDistance(initial,nodeCheese) %d\n",(int)aStarPath.size,GetManhattanDistance(initial,nodeCheese));
   if(aStarPath.size == GetManhattanDistance(initial,nodeCheese)){
     return true;
   }else{
@@ -823,7 +828,7 @@ directions getDirectionToExploreMap(int* currentNodeCoord, directions currentDir
 
     }
     printf("Explorating map return null\n");
-    return ;
+    return -1;
   }
 }
 
@@ -1022,7 +1027,7 @@ void performAStar(Node *initialNode, Node *finalNode, bool toFollow){
           neighboursOfCurrentNode.array[n]->hCost = GetManhattanDistance(neighboursOfCurrentNode.array[n],finalNode);
       //    printf("add neigh : %d, %d \n", neighboursOfCurrentNode.array[n]->coor_x, neighboursOfCurrentNode.array[n]->coor_y);
 
-          neighboursOfCurrentNode.array[n]->parent = currentNode;  //verificar se está bem.
+          (neighboursOfCurrentNode.array[n])->parent = currentNode;  //verificar se está bem.
 
           if(!elementIsInArray(&openSet,neighboursOfCurrentNode.array[n])){
             insertArray(&openSet,neighboursOfCurrentNode.array[n]);
