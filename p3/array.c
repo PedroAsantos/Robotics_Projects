@@ -10,6 +10,7 @@ typedef struct nodeMap
     int paths[4];
     int ggCost;
     int hCost;
+    bool visited;
     struct Node *parent;
 } Node;
 
@@ -47,7 +48,7 @@ void insertArray(Array *a, Node *element) {
 }
 
 void insertArrayInt(ArrayUnknownCoord *a, int *element) {
-  printf("insertArrayInt() (%d,%d) \n", element[0],element[1]);
+//  printf("insertArrayInt() (%d,%d) \n", element[0],element[1]);
   // a->used is the number of used entries, because a->array[a->used++] updates a->used only *after* the array has been accessed.
   // Therefore a->used can go up to a->size
   /*if (a->used == a->size) {
@@ -110,9 +111,9 @@ bool elementIsInArray(Array *a, Node *elementToCheck){
 }
 
 bool elementIsInArrayInt(ArrayUnknownCoord *a, int *elementToCheck){
-  printf("elementIsInArrayInt() \n");
+//  printf("elementIsInArrayInt() \n");
   int i;
-  printf("a->used %d\n", a->used);
+//  printf("a->used %d\n",(int) a->used);
   for(i=0;i<a->used;i++){
     if(a->intArray[i][0] == elementToCheck[0] && a->intArray[i][1] == elementToCheck[1]){
       return true;
