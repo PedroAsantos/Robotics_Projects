@@ -27,34 +27,15 @@ typedef struct {
   size_t size;
 } ArrayUnknownCoord;
 
-void initArray(Array *a, size_t initialSize) {
-//  a->array = (Node *) malloc(initialSize * sizeof(Node));
-  /*printf("teste\n");
-  a->array = (Node *) malloc(initialSize * sizeof(Node));
-  printf("malloc array %d\n", a->array);
-  a->used = 0;
-  a->size = initialSize;*/
 
-}
 
 void insertArray(Array *a, Node *element) {
-  // a->used is the number of used entries, because a->array[a->used++] updates a->used only *after* the array has been accessed.
-  // Therefore a->used can go up to a->size
-  /*if (a->used == a->size) {
-    a->size *= 2;
-    a->array = (Node *)realloc(a->array, a->size * sizeof(Node));
-  }*/
+
   a->array[a->used++] = element;
 }
 
 void insertArrayInt(ArrayUnknownCoord *a, int *element) {
-//  printf("insertArrayInt() (%d,%d) \n", element[0],element[1]);
-  // a->used is the number of used entries, because a->array[a->used++] updates a->used only *after* the array has been accessed.
-  // Therefore a->used can go up to a->size
-  /*if (a->used == a->size) {
-    a->size *= 2;
-    a->array = (Node *)realloc(a->array, a->size * sizeof(Node));
-  }*/
+
   a->intArray[a->used][0] = element[0];
   a->intArray[a->used][1] = element[1];
   a->used++;
