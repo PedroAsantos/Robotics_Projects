@@ -86,119 +86,7 @@ int main(void)
 
     unknownNodesHistory.used = 0;
 
-/*    Node *path[(INITIAL_SIZE_X_MAP/2+1) * (INITIAL_SIZE_Y_MAP/2+1)];
-    unknownNodesHistory.used = 0;
-    unknownNodesHistory.array = path;*/
 
-
-    //printing map
-    int i,j,c;
-    for(i=0;i<37;i++){
-      for(j=0;j<37;j++){
-    //      ////printf("(%d,", map[i][j].coor_x);
-    //      ////printf("%d,", map[i][j].coor_y);
-          for(c=0;c<4;c++){
-    //        ////printf("%d,", map[i][j].paths[c]);
-          }
-    //      ////printf(")");
-          //
-      }
-    //  ////printf("\n");
-    }
-
-/*  insertArray(&unknownNodesHistory,&map[0][0]);
-    insertArray(&unknownNodesHistory,&map[0][1]);
-    insertArray(&unknownNodesHistory,&map[0][2]);
-    int ii;
-    for(ii=0;ii<unknownNodesHistory.used;ii++){
-      ////printf("%d\n",unknownNodesHistory.array[ii]->coor_x);
-    }
-    removeElementFromArray(&unknownNodesHistory,&map[0][0]);
-    ////printf("sdfsdf\n" );
-    for(ii=0;ii<unknownNodesHistory.used;ii++){
-      ////printf("%d\n",unknownNodesHistory.array[ii]->coor_x);
-    }*/
-/*
-    int nodeTempInitial[2];
-    nodeTempInitial[0]= 0;
-    nodeTempInitial[1]=0;
-    int pathTemp = 0b1000;
-    updateMap(nodeTempInitial,pathTemp);
-    int nodeTemp[2];
-    nodeTemp[0]= 1;
-    nodeTemp[1]= 0;
-    pathTemp = 0b1110;
-    updateMap(nodeTemp,pathTemp);
-    nodeTemp[0]= 1;
-    nodeTemp[1]= -1;
-    pathTemp = 0b1111;
-    updateMap(nodeTemp,pathTemp);
-    nodeTemp[0]= 2;
-    nodeTemp[1]= -1;
-    pathTemp = 0b1111;
-    updateMap(nodeTemp,pathTemp);
-    nodeTemp[0]= 2;
-    nodeTemp[1]= 0;
-    pathTemp = 0b1111;
-    updateMap(nodeTemp,pathTemp);
-    nodeTemp[0]= 3;
-    nodeTemp[1]= 0;
-    pathTemp = 0b1111;
-    updateMap(nodeTemp,pathTemp);
-    nodeTemp[0]= 3;
-    nodeTemp[1]= -1;
-    pathTemp = 0b1111;
-    updateMap(nodeTemp,pathTemp);
-    nodeTemp[0]= 3;
-    nodeTemp[1]= -2;
-    pathTemp = 0b1111;
-    updateMap(nodeTemp,pathTemp);
-
-    int initialIndex[2] = {0};
-    int finalIndex[2] = {0};
-    getNodeMapIndex(nodeTemp,initialIndex);
-    getNodeMapIndex(nodeTempInitial,finalIndex);
-    performAStar(&map[initialIndex[0]][initialIndex[1]],&map[finalIndex[0]][finalIndex[1]]);
-*/
-
-
-  /*  nodeTemp[0]= 1;
-    nodeTemp[1]= 0;
-    pathTemp = 0b1000;
-    updateMap(nodeTemp,pathTemp);
-    nodeTemp[0]= 1;
-    nodeTemp[1]= -1;
-    pathTemp = 0b1000;
-    updateMap(nodeTemp,pathTemp);
-    nodeTemp[0]= 0;
-    nodeTemp[1]= -1;
-    pathTemp = 0b1000;
-    updateMap(nodeTemp,pathTemp);
-    nodeTemp[0]= -1;
-    nodeTemp[1]= -1;
-    pathTemp = 0b1000;
-    updateMap(nodeTemp,pathTemp);*/
-    //printing map
-    ////printf("#################################################################\n");
-    for(i=0;i<SIZE_Y_MAP;i++){
-      for(j=0;j<SIZE_X_MAP;j++){
-      //    ////printf("(%d,", map[i][j].coor_x);
-      //    ////printf("%d,", map[i][j].coor_y);
-          for(c=0;c<4;c++){
-      //      ////printf("%d,", map[i][j].paths[c]);
-          }
-      //    ////printf(")");
-          //
-      }
-      ////printf("\n");
-    }
-
-/*  => code to test getNodeMapIndex
-    int currentNodeTest[2] = {-5,-2};
-    int* test = getNodeMapIndex(currentNodeTest);
-    ////printf("indexX = %d ",test[0]);
-    ////printf("indexY = %d ",test[1]);
-    ////printf("coord = %d,%d", map[test[0]][test[1]].coor_x,map[test[0]][test[1]].coor_y);*/
 
     while(1)
     {
@@ -355,9 +243,9 @@ int main(void)
               //check if node has more than one unknown neighbour. if yes, than add to the array.
               updateUnknownNodesHistory(node);
               //set visited current node
-              int nodeIndex[2] = {0};
-              getNodeMapIndex(node,nodeIndex);
-              map[nodeIndex[0]][nodeIndex[1]].visited = true;
+        //      int nodeIndex[2] = {0};
+        //      getNodeMapIndex(node,nodeIndex);
+        //      map[nodeIndex[0]][nodeIndex[1]].visited = true;
             }
 
             if(movstate == EXPECTINGCOMMAND){
@@ -1161,18 +1049,6 @@ void saveAStartPath(Node *head, bool toFollow) {
         if(current_node->parent != NULL){
         //  ////printf("(%d, %d) ",current_node->coor_x, current_node->coor_y );
           aStarPath.size++;
-        /*  contPath = 0;
-          for(c=0;c<4;c++){
-            ////printf("%d,",current_node->paths[c]);
-            if(current_node->paths[c]==1){
-              contPath++;
-            }
-          }
-
-          if(contPath>2 && previousNode!=NULL ){
-            ////printf(" Added previous Node to A Path \n" );
-            insertArray(&aStarPath, previousNode);
-          }*/
           insertArray(&aStarPath, current_node);
       //    ////printf("\n");
 
@@ -1180,16 +1056,7 @@ void saveAStartPath(Node *head, bool toFollow) {
         current_node = current_node->parent;
         previousNode = current_node;
     }
-    //cheat to remove last element
-  //  aStarPath.used--;
-    //remove from path points without more than one option.
-//    ////printf("\n calculated \n" );
-/*    int n;
-    for(n=0;n<aStarPath.used;n++){
-     ////printf("-->(%d, %d) ",aStarPath.array[n]->coor_x, aStarPath.array[n]->coor_y );
-   }*/
-    //  ////printf("\n");
-  //  ////printf("path size: %d\n",aStarPath.used);
+
     if(aStarPath.used==0 || toFollow==false){
       performingAStar = false;
     }else{
@@ -1219,7 +1086,7 @@ void updateMapPaths(int *node, int paths){
   for(c=0;c<4;c++){
     map[nodeIndex[0]][nodeIndex[1]].paths[c]=0;
   }
-
+  map[nodeIndex[0]][nodeIndex[1]].visited = true;
   int nodeIndexNeighbour[2] = {0};
 
   //West
@@ -1299,8 +1166,6 @@ void updateMapSize(int* currentNodeCoord){
         }
       }
     }
-
-// update baseNodeIndex
 
 }
 
