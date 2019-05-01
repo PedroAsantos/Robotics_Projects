@@ -26,7 +26,7 @@ the start position is not marked in any way.
 to the simulated robot.
 * To deal with the noise in sensors, it was used Kalman filter
 
-####Project 3
+## Project 3
 The robot is not simulated and it should go through a maze following black lines and searhing for a larger black line that it is 
 considered the token. The maze has loops and the robot must explore the map and find the token. After finding the token, the robot
 must return to the initial point using the best possible path. 
