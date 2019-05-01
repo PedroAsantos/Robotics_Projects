@@ -1,7 +1,7 @@
 # Robotics_Projects
 This repository contains the projects developed during the course of robotics. 
 
-##Project 1
+## Project 1
 The first project consists on the development of the control software of a black/white transition follower robot.
 This project contains 3 extra challenges.
   The robot must be prepared to:
@@ -13,7 +13,7 @@ these two lines the robot must move at a constant speed (to be defined) and turn
 Futhermore, after completing the two first laps, the start line will be removed and the robot is supposed to stop as close as 
 possible to the original position of the start line.
 
-##Project 2
+## Project 2
 The main objective is the development of a robotic agent to command a mobile robot,making it move to an unknown target 
 position in a semi-structured environment and then return back to the start position through the shortest path. At the end, 
 the agent should also show the acquired map and the path used to return.
